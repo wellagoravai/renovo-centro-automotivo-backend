@@ -13,11 +13,11 @@
   "project": {
     "version": "1.0.0",
     "restore": {
-      "projectUniqueName": "C:\\Users\\W-Works\\Documents\\WellWorks Site Renovo\\renovo-centro-automotivo-website\\backend\\RenovoWorkshop.Domain\\RenovoWorkshop.Domain.csproj",
+      "projectUniqueName": "C:\\Users\\W-Works\\Documents\\WellWorks Site Renovo\\renovo-centro-automotivo-backend\\backend\\RenovoWorkshop.Domain\\RenovoWorkshop.Domain.csproj",
       "projectName": "RenovoWorkshop.Domain",
-      "projectPath": "C:\\Users\\W-Works\\Documents\\WellWorks Site Renovo\\renovo-centro-automotivo-website\\backend\\RenovoWorkshop.Domain\\RenovoWorkshop.Domain.csproj",
+      "projectPath": "C:\\Users\\W-Works\\Documents\\WellWorks Site Renovo\\renovo-centro-automotivo-backend\\backend\\RenovoWorkshop.Domain\\RenovoWorkshop.Domain.csproj",
       "packagesPath": "C:\\Users\\W-Works\\.nuget\\packages\\",
-      "outputPath": "C:\\Users\\W-Works\\Documents\\WellWorks Site Renovo\\renovo-centro-automotivo-website\\backend\\RenovoWorkshop.Domain\\obj\\",
+      "outputPath": "C:\\Users\\W-Works\\Documents\\WellWorks Site Renovo\\renovo-centro-automotivo-backend\\backend\\RenovoWorkshop.Domain\\obj\\",
       "projectStyle": "PackageReference",
       "configFilePaths": [
         "C:\\Users\\W-Works\\AppData\\Roaming\\NuGet\\NuGet.Config"

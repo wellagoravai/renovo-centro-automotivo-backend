@@ -1,8 +1,8 @@
 {
   "version": 2,
-  "dgSpecHash": "z02Atm4xf2M=",
+  "dgSpecHash": "EF4ux6JX0Lg=",
   "success": true,
-  "projectFilePath": "C:\\Users\\W-Works\\Documents\\WellWorks Site Renovo\\renovo-centro-automotivo-website\\backend\\RenovoWorkshop.Tests\\RenovoWorkshop.Tests.csproj",
+  "projectFilePath": "C:\\Users\\W-Works\\Documents\\WellWorks Site Renovo\\renovo-centro-automotivo-backend\\backend\\RenovoWorkshop.Tests\\RenovoWorkshop.Tests.csproj",
   "expectedPackageFiles": [
     "C:\\Users\\W-Works\\.nuget\\packages\\azure.core\\1.35.0\\azure.core.1.35.0.nupkg.sha512",
     "C:\\Users\\W-Works\\.nuget\\packages\\azure.identity\\1.10.3\\azure.identity.1.10.3.nupkg.sha512",

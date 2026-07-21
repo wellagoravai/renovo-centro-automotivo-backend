@@ -2833,11 +2833,11 @@
   "project": {
     "version": "1.0.0",
     "restore": {
-      "projectUniqueName": "C:\\Users\\W-Works\\Documents\\WellWorks Site Renovo\\renovo-centro-automotivo-website\\backend\\RenovoWorkshop.Infrastructure\\RenovoWorkshop.Infrastructure.csproj",
+      "projectUniqueName": "C:\\Users\\W-Works\\Documents\\WellWorks Site Renovo\\renovo-centro-automotivo-backend\\backend\\RenovoWorkshop.Infrastructure\\RenovoWorkshop.Infrastructure.csproj",
       "projectName": "RenovoWorkshop.Infrastructure",
-      "projectPath": "C:\\Users\\W-Works\\Documents\\WellWorks Site Renovo\\renovo-centro-automotivo-website\\backend\\RenovoWorkshop.Infrastructure\\RenovoWorkshop.Infrastructure.csproj",
+      "projectPath": "C:\\Users\\W-Works\\Documents\\WellWorks Site Renovo\\renovo-centro-automotivo-backend\\backend\\RenovoWorkshop.Infrastructure\\RenovoWorkshop.Infrastructure.csproj",
       "packagesPath": "C:\\Users\\W-Works\\.nuget\\packages\\",
-      "outputPath": "C:\\Users\\W-Works\\Documents\\WellWorks Site Renovo\\renovo-centro-automotivo-website\\backend\\RenovoWorkshop.Infrastructure\\obj\\",
+      "outputPath": "C:\\Users\\W-Works\\Documents\\WellWorks Site Renovo\\renovo-centro-automotivo-backend\\backend\\RenovoWorkshop.Infrastructure\\obj\\",
       "projectStyle": "PackageReference",
       "configFilePaths": [
         "C:\\Users\\W-Works\\AppData\\Roaming\\NuGet\\NuGet.Config"
@@ -2852,8 +2852,8 @@
         "net8.0": {
           "targetAlias": "net8.0",
           "projectReferences": {
-            "C:\\Users\\W-Works\\Documents\\WellWorks Site Renovo\\renovo-centro-automotivo-website\\backend\\RenovoWorkshop.Application\\RenovoWorkshop.Application.csproj": {
-              "projectPath": "C:\\Users\\W-Works\\Documents\\WellWorks Site Renovo\\renovo-centro-automotivo-website\\backend\\RenovoWorkshop.Application\\RenovoWorkshop.Application.csproj"
+            "C:\\Users\\W-Works\\Documents\\WellWorks Site Renovo\\renovo-centro-automotivo-backend\\backend\\RenovoWorkshop.Application\\RenovoWorkshop.Application.csproj": {
+              "projectPath": "C:\\Users\\W-Works\\Documents\\WellWorks Site Renovo\\renovo-centro-automotivo-backend\\backend\\RenovoWorkshop.Application\\RenovoWorkshop.Application.csproj"
             }
           }
         }
