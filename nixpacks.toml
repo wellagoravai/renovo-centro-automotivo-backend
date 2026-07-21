@@ -1,0 +1,11 @@
+[phases.install]
+cmds = ["dotnet restore backend/RenovoWorkshop.Api/RenovoWorkshop.Api.csproj"]
+
+[phases.build]
+cmds = [
+  "dotnet restore backend/RenovoWorkshop.Api/RenovoWorkshop.Api.csproj",
+  "dotnet publish backend/RenovoWorkshop.Api/RenovoWorkshop.Api.csproj -c Release -o /app/out"
+]
+
+[start]
+cmd = "dotnet /app/out/RenovoWorkshop.Api.dll"
