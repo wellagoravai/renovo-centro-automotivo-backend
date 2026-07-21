@@ -81,16 +81,28 @@ Cors__AllowedOrigins=https://seu-frontend.netlify.app
 2. Anote a `DATABASE_URL` fornecida
 3. Adapte o código para usar PostgreSQL (ver guia completo)
 
-### 5. Deploy do Frontend
-**Netlify**:
-1. Acesse [netlify.com](https://netlify.com)
-2. New site from Git → Conecte o repositório
-3. Build command: `npm run build`
-4. Publish directory: `build`
-5. Variável: `REACT_APP_API_URL=https://seu-backend.railway.app`
+### 5. Deploy do Frontend (Vercel)
+O frontend React será hospedado no **Vercel**:
+
+1. Acesse [vercel.com](https://vercel.com)
+2. Faça login com GitHub
+3. Clique em **"Add New Project"**
+4. Importe o repositório: `wellagoravai/renovo-centro-automotivo-backend`
+5. Configure:
+   - **Framework Preset**: React
+   - **Build Command**: `npm run build`
+   - **Output Directory**: `build`
+   - **Root Directory**: `./` (raiz do repositório)
+6. Adicione variável de ambiente:
+   ```env
+   REACT_APP_API_URL=https://seu-backend.railway.app
+   ```
+7. Clique em **"Deploy"**
+
+**Importante**: O Vercel vai detectar automaticamente o `package.json` na raiz e fazer o build do React.
 
 ### 6. Atualizar CORS
-Após deploy do frontend, atualize `Cors__AllowedOrigins` no Railway com a URL do frontend.
+Após deploy do frontend no Vercel, atualize `Cors__AllowedOrigins` no Railway com a URL do frontend (ex: `https://seu-projeto.vercel.app`).
 
 ## 📊 Custos
 

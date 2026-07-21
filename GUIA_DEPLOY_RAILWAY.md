@@ -72,31 +72,30 @@ Cors__AllowedOrigins=https://seu-frontend.netlify.app,https://seu-frontend.verce
 2. Clique em **"Generate Domain"** para obter um domínio gratuito do Railway
 3. Ou configure seu próprio domínio (ex: `api.renovo.com`)
 
-### 6. Deploy do Frontend
+### 6. Deploy do Frontend (Vercel)
 
-O frontend React precisa ser hospedado separadamente. Opções gratuitas:
+O frontend React será hospedado no **Vercel** (recomendado para projetos React):
 
-#### Opção A: Netlify (Recomendado)
-1. Acesse [netlify.com](https://netlify.com)
-2. Clique em **"New site from Git"**
-3. Conecte o repositório GitHub
-4. Configure:
-   - **Build command**: `npm run build`
-   - **Publish directory**: `build`
-5. Adicione variável de ambiente:
+1. Acesse [vercel.com](https://vercel.com)
+2. Faça login com GitHub
+3. Clique em **"Add New Project"**
+4. Importe o repositório: `wellagoravai/renovo-centro-automotivo-backend`
+5. Configure:
+   - **Framework Preset**: React
+   - **Build Command**: `npm run build`
+   - **Output Directory**: `build`
+   - **Root Directory**: `./` (raiz do repositório)
+6. Adicione variável de ambiente:
    ```env
    REACT_APP_API_URL=https://seu-backend.railway.app
    ```
+7. Clique em **"Deploy"**
 
-#### Opção B: Vercel
-1. Acesse [vercel.com](https://vercel.com)
-2. Importe o repositório
-3. Configure automaticamente (detecta React)
-4. Adicione variável de ambiente `REACT_APP_API_URL`
+**Importante**: O Vercel vai detectar automaticamente o `package.json` na raiz e fazer o build do React.
 
 ### 7. Atualizar CORS
 
-Após fazer deploy do frontend, volte no Railway e atualize a variável `Cors__AllowedOrigins` com a URL do frontend.
+Após fazer deploy do frontend no Vercel, volte no Railway e atualize a variável `Cors__AllowedOrigins` com a URL do frontend (ex: `https://seu-projeto.vercel.app`).
 
 ## 📊 Monitoramento
 
