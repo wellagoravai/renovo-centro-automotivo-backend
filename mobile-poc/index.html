@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="theme-color" content="#2c3e50">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <title>Renovo - Check-in & Checklist</title>
+    <link rel="stylesheet" href="styles.css">
+    <link rel="manifest" href="manifest.json">
+</head>
+<body>
+    <div id="app">
+        <!-- Login Screen -->
+        <div id="login-screen" class="screen">
+            <div class="login-container">
+                <div class="logo">
+                    <img src="../public/assets/logo.png" alt="Renovo" class="logo-img">
+                    <h1>Renovo Workshop</h1>
+                    <p>Check-in & Checklist</p>
+                </div>
+                <form id="login-form">
+                    <div class="form-group">
+                        <label>Usuário</label>
+                        <input type="text" id="username" required placeholder="admin">
+                    </div>
+                    <div class="form-group">
+                        <label>Senha</label>
+                        <input type="password" id="password" required placeholder="Renovo@123">
+                    </div>
+                    <button type="submit" class="btn-primary">Entrar</button>
+                    <p id="login-error" class="error-message"></p>
+                </form>
+            </div>
+        </div>
+
+        <!-- Check-in Screen -->
+        <div id="checkin-screen" class="screen hidden">
+            <header class="app-header">
+                <h1>Check-in do Veículo</h1>
+                <button id="logout-btn" class="btn-logout">Sair</button>
+            </header>
+            <main class="app-content">
+                <form id="checkin-form">
+                    <div class="form-group">
+                        <label>Placa do Veículo</label>
+                        <input type="text" id="plate" required placeholder="ABC-1234" maxlength="8">
+                    </div>
+                    <div class="form-group">
+                        <label>Quilometragem</label>
+                        <input type="number" id="mileage" required placeholder="50000">
+                    </div>
+                    <div class="form-group">
+                        <label>Nível de Combustível</label>
+                        <select id="fuel-level" required>
+                            <option value="">Selecione</option>
+                            <option value="0">Vazio</option>
+                            <option value="1">1/4</option>
+                            <option value="2">1/2</option>
+                            <option value="3">3/4</option>
+                            <option value="4">Cheio</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Observações</label>
+                        <textarea id="observations" rows="3" placeholder="Observações adicionais..."></textarea>
+                    </div>
+                    <button type="submit" class="btn-primary">Registrar Check-in</button>
+                </form>
+            </main>
+        </div>
+
+        <!-- Checklist Screen -->
+        <div id="checklist-screen" class="screen hidden">
+            <header class="app-header">
+                <h1>Checklist</h1>
+                <button id="back-btn" class="btn-back">← Voltar</button>
+            </header>
+            <main class="app-content">
+                <div class="vehicle-info">
+                    <h2 id="vehicle-plate"></h2>
+                    <p id="vehicle-customer"></p>
+                </div>
+                <form id="checklist-form">
+                    <div class="checklist-items">
+                        <div class="checklist-item">
+                            <input type="checkbox" id="item1" required>
+                            <label for="item1">Documento do veículo</label>
+                        </div>
+                        <div class="checklist-item">
+                            <input type="checkbox" id="item2" required>
+                            <label for="item2">Chave de ignição</label>
+                        </div>
+                        <div class="checklist-item">
+                            <input type="checkbox" id="item3" required>
+                            <label for="item3">Estepe e ferramentas</label>
+                        </div>
+                        <div class="checklist-item">
+                            <input type="checkbox" id="item4" required>
+                            <label for="item4">Manual do proprietário</label>
+                        </div>
+                        <div class="checklist-item">
+                            <input type="checkbox" id="item5" required>
+                            <label for="item5">Tapetes</label>
+                        </div>
+                        <div class="checklist-item">
+                            <input type="checkbox" id="item6" required>
+                            <label for="item6">Antena</label>
+                        </div>
+                        <div class="checklist-item">
+                            <input type="checkbox" id="item7" required>
+                            <label for="item7">Rádio/CD Player</label>
+                        </div>
+                        <div class="checklist-item">
+                            <input type="checkbox" id="item8" required>
+                            <label for="item8">Extintor de incêndio</label>
+                        </div>
+                        <div class="checklist-item">
+                            <input type="checkbox" id="item9" required>
+                            <label for="item9">Triângulo e sinalização</label>
+                        </div>
+                        <div class="checklist-item">
+                            <input type="checkbox" id="item10" required>
+                            <label for="item10">Estado geral do veículo</label>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label>Observações Adicionais</label>
+                        <textarea id="checklist-notes" rows="3" placeholder="Danos, avarias, observações..."></textarea>
+                    </div>
+                    <button type="submit" class="btn-primary">Finalizar Checklist</button>
+                </form>
+            </main>
+        </div>
+
+        <!-- Success Screen -->
+        <div id="success-screen" class="screen hidden">
+            <div class="success-container">
+                <div class="success-icon">✓</div>
+                <h2>Registrado com Sucesso!</h2>
+                <p id="success-message"></p>
+                <button id="new-checkin-btn" class="btn-primary">Novo Check-in</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>

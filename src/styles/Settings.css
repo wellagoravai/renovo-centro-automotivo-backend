@@ -1,0 +1,118 @@
+.settings-page {
+  padding: 20px;
+  background: #f5f6fa;
+  min-height: 100vh;
+}
+
+.settings-page h1 {
+  color: #2c3e50;
+  font-size: 28px;
+  margin-bottom: 30px;
+}
+
+.settings-sections {
+  display: grid;
+  gap: 25px;
+}
+
+.settings-section {
+  background: white;
+  border-radius: 12px;
+  padding: 25px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+
+.settings-section h2 {
+  color: #2c3e50;
+  font-size: 20px;
+  margin-bottom: 20px;
+  padding-bottom: 10px;
+  border-bottom: 2px solid #ecf0f1;
+}
+
+.setting-item {
+  margin-bottom: 20px;
+}
+
+.setting-item label {
+  display: block;
+  margin-bottom: 8px;
+  color: #2c3e50;
+  font-weight: 500;
+  font-size: 14px;
+}
+
+.setting-item input[type="text"],
+.setting-item input[type="tel"],
+.setting-item input[type="email"],
+.setting-item select {
+  width: 100%;
+  max-width: 400px;
+  padding: 12px 15px;
+  border: 2px solid #ecf0f1;
+  border-radius: 8px;
+  font-size: 16px;
+  transition: border-color 0.2s;
+  font-family: inherit;
+}
+
+.setting-item input:focus,
+.setting-item select:focus {
+  outline: none;
+  border-color: #3498db;
+}
+
+.setting-item input[type="checkbox"] {
+  width: 20px;
+  height: 20px;
+  margin-right: 10px;
+  cursor: pointer;
+}
+
+.setting-item label:has(input[type="checkbox"]) {
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+}
+
+.settings-section .btn-primary {
+  margin-top: 10px;
+  padding: 12px 24px;
+  background: #3498db;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.settings-section .btn-primary:hover {
+  background: #2980b9;
+}
+
+@media (max-width: 768px) {
+  .settings-page {
+    padding: 10px;
+  }
+
+  .settings-page h1 {
+    font-size: 22px;
+  }
+
+  .settings-section {
+    padding: 20px;
+  }
+
+  .settings-section h2 {
+    font-size: 18px;
+  }
+
+  .setting-item input[type="text"],
+  .setting-item input[type="tel"],
+  .setting-item input[type="email"],
+  .setting-item select {
+    max-width: 100%;
+  }
+}

@@ -1,0 +1,19 @@
+@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&display=swap');
+
+:root {
+    /* Paleta da marca: Preto + Vermelho (alta legibilidade) */
+    --brand-black: #1a1a1a; /* preto profundo */
+    --brand-red: #CC0000;   /* vermelho vibrante */
+    --primary-color: var(--brand-black);
+    --accent-color: var(--brand-red);
+    --background-color: #ffffff;
+    --text-color: #1f2937; /* cinza-escuro para melhor contraste */
+    --header-height: 60px;
+    --footer-height: 50px;
+    --font-family: 'Poppins', sans-serif;
+    --font-size-base: 16px;
+    --font-size-large: 20px;
+    --font-size-small: 14px;
+    --border-radius: 4px;
+    --box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+}
