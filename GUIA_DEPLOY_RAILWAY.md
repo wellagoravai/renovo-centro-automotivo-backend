@@ -168,3 +168,7 @@ Se tiver problemas:
 1. Verifique os logs no Railway (aba "Deployments" → clique no deploy → "View Logs")
 2. Consulte a documentação do Railway
 3. Abra uma issue no GitHub do projeto
+
+---
+
+*Última atualização: 21/07/2026 - Trigger de deploy Railway*
