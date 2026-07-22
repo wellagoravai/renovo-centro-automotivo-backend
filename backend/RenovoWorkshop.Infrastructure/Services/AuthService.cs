@@ -31,6 +31,8 @@ public class AuthService : IAuthService
                 new Claim(ClaimTypes.Role, role),
                 new Claim("permissions", string.Join(",", permissions))
             }),
+            Issuer = _configuration["Jwt:Issuer"] ?? "RenovoWorkshop.Api",
+            Audience = _configuration["Jwt:Audience"] ?? "RenovoWorkshop.Client",
             Expires = DateTime.UtcNow.AddHours(8),
             SigningCredentials = new SigningCredentials(new SymmetricSecurityKey(key), SecurityAlgorithms.HmacSha256Signature)
         };
