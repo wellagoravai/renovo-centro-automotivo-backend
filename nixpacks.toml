@@ -5,7 +5,7 @@ nixPkgs = ["dotnet-sdk_8"]
 cmds = ["dotnet restore backend/RenovoWorkshop.sln"]
 
 [phases.build]
-cmds = ["dotnet publish backend/RenovoWorkshop.Api/RenovoWorkshop.Api.csproj -c Release -o /app/out"]
+cmds = ["dotnet publish backend/RenovoWorkshop.Api/RenovoWorkshop.Api.csproj -c Release -r linux-x64 --self-contained true -o /app/out"]
 
 [start]
-cmd = "dotnet /app/out/RenovoWorkshop.Api.dll"
+cmd = "/app/out/RenovoWorkshop.Api"

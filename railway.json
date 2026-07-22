@@ -4,7 +4,7 @@
     "builder": "NIXPACKS"
   },
   "deploy": {
-    "startCommand": "dotnet /app/out/RenovoWorkshop.Api.dll",
+    "startCommand": "/app/out/RenovoWorkshop.Api",
     "restartPolicyType": "ON_FAILURE",
     "restartPolicyMaxRetries": 10
   },

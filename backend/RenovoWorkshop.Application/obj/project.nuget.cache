@@ -1,8 +1,11 @@
 {
   "version": 2,
-  "dgSpecHash": "xUOtc6t/x6I=",
+  "dgSpecHash": "fdSJQ5GYtB4=",
   "success": true,
   "projectFilePath": "C:\\Users\\W-Works\\Documents\\WellWorks Site Renovo\\renovo-centro-automotivo-backend\\backend\\RenovoWorkshop.Application\\RenovoWorkshop.Application.csproj",
-  "expectedPackageFiles": [],
+  "expectedPackageFiles": [
+    "C:\\Users\\W-Works\\.nuget\\packages\\microsoft.netcore.app.runtime.linux-x64\\8.0.28\\microsoft.netcore.app.runtime.linux-x64.8.0.28.nupkg.sha512",
+    "C:\\Users\\W-Works\\.nuget\\packages\\microsoft.aspnetcore.app.runtime.linux-x64\\8.0.28\\microsoft.aspnetcore.app.runtime.linux-x64.8.0.28.nupkg.sha512"
+  ],
   "logs": []
 }
