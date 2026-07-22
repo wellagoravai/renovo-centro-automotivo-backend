@@ -15,7 +15,7 @@ namespace RenovoWorkshop.Infrastructure.Migrations
                 columns: new[] { "Id", "CreatedAt", "Email", "FullName", "IsActive", "PasswordHash", "Permissions", "Role", "UserName" },
                 values: new object[]
                 {
-                    new Guid("11111111-1111-1111-1111-111111111111"), new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc), "admin@renovo.com.br", "Administrador Master", true, "$2a$11$DE/XOjuMgCwZHSgyv9STWOwUNW9nI/Rds4nAwA2gWmfB1zZ8bKgq2", "dashboard.view,customers.read,customers.write,vehicles.read,vehicles.write,orders.read,orders.write,inventory.read,inventory.write,users.manage", "Administrador", "admin"
+                    new Guid("11111111-1111-1111-1111-111111111111"), new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc), "admin@renovo.com.br", "Administrador Master", true, "$2a$11$GAh79wVuhlFp1ZKM6HmGEebXjYe.tk.HwhkOu1ahmtF1yCinSB37S", "dashboard.view,customers.read,customers.write,vehicles.read,vehicles.write,orders.read,orders.write,inventory.read,inventory.write,users.manage", "Administrador", "admin"
                 });
 
             migrationBuilder.InsertData(

@@ -142,7 +142,7 @@ O frontend estará disponível em: `http://localhost:3000`
 
 **Usuário Administrador (padrão):**
 - Usuário: `admin`
-- Senha: `Renovo@123`
+- Senha: `admin123`
 
 ## 📊 Módulos do Sistema
 

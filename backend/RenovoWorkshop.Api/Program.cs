@@ -130,18 +130,18 @@ static void SeedTestData(RenovoWorkshopDbContext context)
     // Seed 10 Users
     var users = new List<RenovoWorkshop.Domain.Entities.ApplicationUser>
     {
-        new RenovoWorkshop.Domain.Entities.ApplicationUser
-        {
-            Id = Guid.Parse("11111111-1111-1111-1111-111111111111"),
-            UserName = "admin",
-            Email = "admin@renovo.com.br",
-            PasswordHash = "$2a$11$DE/XOjuMgCwZHSgyv9STWOwUNW9nI/Rds4nAwA2gWmfB1zZ8bKgq2",
-            FullName = "Administrador Master",
-            Role = "Administrador",
-            Permissions = "dashboard.view,customers.read,customers.write,vehicles.read,vehicles.write,orders.read,orders.write,inventory.read,inventory.write,users.manage",
-            IsActive = true,
-            CreatedAt = new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc)
-        },
+            new RenovoWorkshop.Domain.Entities.ApplicationUser
+            {
+                Id = Guid.Parse("11111111-1111-1111-1111-111111111111"),
+                UserName = "admin",
+                Email = "admin@renovo.com.br",
+                PasswordHash = "$2a$11$GAh79wVuhlFp1ZKM6HmGEebXjYe.tk.HwhkOu1ahmtF1yCinSB37S",
+                FullName = "Administrador Master",
+                Role = "Administrador",
+                Permissions = "dashboard.view,customers.read,customers.write,vehicles.read,vehicles.write,orders.read,orders.write,inventory.read,inventory.write,users.manage",
+                IsActive = true,
+                CreatedAt = new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc)
+            },
         new RenovoWorkshop.Domain.Entities.ApplicationUser
         {
             Id = Guid.Parse("22222222-2222-2222-2222-222222222222"),
