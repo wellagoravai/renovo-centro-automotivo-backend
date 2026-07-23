@@ -30,7 +30,8 @@ public class AutoMapperProfile : Profile
             .ForMember(dest => dest.VehiclePlate, opt => opt.MapFrom(src => src.Vehicle.Plate))
             .ForMember(dest => dest.VehicleBrand, opt => opt.MapFrom(src => src.Vehicle.Brand))
             .ForMember(dest => dest.VehicleModel, opt => opt.MapFrom(src => src.Vehicle.Model))
-            .ForMember(dest => dest.History, opt => opt.MapFrom(src => src.History));
+            .ForMember(dest => dest.History, opt => opt.MapFrom(src => src.History))
+            .ForMember(dest => dest.Items, opt => opt.MapFrom(src => src.Items));
 
         CreateMap<ServiceOrderHistory, ServiceOrderHistoryDto>();
         CreateMap<CreateServiceOrderDto, ServiceOrder>();
@@ -42,6 +43,16 @@ public class AutoMapperProfile : Profile
             .ForMember(dest => dest.EntryDate, opt => opt.Ignore());
         CreateMap<UpdateServiceOrderStatusDto, ServiceOrder>()
             .ForAllMembers(opts => opts.Condition((src, dest, srcMember) => srcMember != null));
+        CreateMap<UpdateServiceOrderDto, ServiceOrder>();
+
+        CreateMap<ServiceOrderItem, ServiceOrderItemDto>()
+            .ForMember(dest => dest.ItemCode, opt => opt.MapFrom(src => src.InventoryItem.Code))
+            .ForMember(dest => dest.ItemDescription, opt => opt.MapFrom(src => src.InventoryItem.Description))
+            .ForMember(dest => dest.TotalValue, opt => opt.MapFrom(src => src.Quantity * src.UnitValue));
+
+        // WorkshopSettings mappings
+        CreateMap<WorkshopSettings, WorkshopSettingsDto>();
+        CreateMap<UpdateWorkshopSettingsDto, WorkshopSettings>();
 
         // InventoryItem mappings
         CreateMap<InventoryItem, InventoryItemDto>();

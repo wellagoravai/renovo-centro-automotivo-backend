@@ -20,6 +20,8 @@ public class RenovoWorkshopDbContext : DbContext
     public DbSet<PurchaseOrder> PurchaseOrders => Set<PurchaseOrder>();
     public DbSet<PurchaseOrderItem> PurchaseOrderItems => Set<PurchaseOrderItem>();
     public DbSet<WhatsAppMessageLog> WhatsAppMessageLogs => Set<WhatsAppMessageLog>();
+    public DbSet<ServiceOrderItem> ServiceOrderItems => Set<ServiceOrderItem>();
+    public DbSet<WorkshopSettings> WorkshopSettings => Set<WorkshopSettings>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -57,6 +59,10 @@ public class RenovoWorkshopDbContext : DbContext
             entity.HasMany(s => s.History)
                 .WithOne(h => h.ServiceOrder)
                 .HasForeignKey(h => h.ServiceOrderId)
+                .OnDelete(DeleteBehavior.Cascade);
+            entity.HasMany(s => s.Items)
+                .WithOne(i => i.ServiceOrder)
+                .HasForeignKey(i => i.ServiceOrderId)
                 .OnDelete(DeleteBehavior.Cascade);
         });
 
@@ -119,6 +125,24 @@ public class RenovoWorkshopDbContext : DbContext
                 .WithMany()
                 .HasForeignKey(i => i.InventoryItemId)
                 .OnDelete(DeleteBehavior.Restrict);
+        });
+
+        modelBuilder.Entity<ServiceOrderItem>(entity =>
+        {
+            entity.HasKey(i => i.Id);
+            entity.Property(i => i.UnitValue).HasPrecision(12, 2);
+            entity.HasOne(i => i.InventoryItem)
+                .WithMany()
+                .HasForeignKey(i => i.InventoryItemId)
+                .OnDelete(DeleteBehavior.Restrict);
+        });
+
+        modelBuilder.Entity<WorkshopSettings>(entity =>
+        {
+            entity.HasKey(s => s.Id);
+            entity.Property(s => s.Name).IsRequired().HasMaxLength(200);
+            entity.Property(s => s.Phone).HasMaxLength(30);
+            entity.Property(s => s.Email).HasMaxLength(200);
         });
     }
 }

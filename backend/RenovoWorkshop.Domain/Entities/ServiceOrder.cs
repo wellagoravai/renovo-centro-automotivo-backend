@@ -21,6 +21,10 @@ public class ServiceOrder
     public bool HasChecklist { get; set; }
     public Guid? ChecklistId { get; set; }
     public string? ApprovalLink { get; set; }
+    public string Photos { get; set; } = string.Empty;
+    public bool StockDeducted { get; set; }
+
+    public ICollection<ServiceOrderItem> Items { get; set; } = new List<ServiceOrderItem>();
 
     public Guid CustomerId { get; set; }
     public Customer Customer { get; set; } = null!;

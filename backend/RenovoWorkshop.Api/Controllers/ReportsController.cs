@@ -32,8 +32,8 @@ public class ReportsController : ControllerBase
             var completedOrders = await _context.ServiceOrders
                 .Include(o => o.Customer)
                 .Include(o => o.Vehicle)
-                .Where(o => o.Status == "Concluído" && 
-                           o.FinalDate >= start && 
+                .Where(o => o.Status == "Entregue" &&
+                           o.FinalDate >= start &&
                            o.FinalDate <= end.AddDays(1).AddSeconds(-1))
                 .OrderByDescending(o => o.FinalDate)
                 .ToListAsync();
@@ -107,11 +107,15 @@ public class ReportsController : ControllerBase
                 .OrderByDescending(s => s.Count)
                 .ToList();
 
+            var cancelled = orders.Count(o => o.Status == "Cancelado");
+
             var overview = new
             {
                 Period = new { start, end },
                 TotalOrders = orders.Count,
                 TotalValue = orders.Sum(o => o.Value),
+                AverageOrderValue = orders.Count > 0 ? orders.Average(o => o.Value) : 0,
+                CancellationRate = orders.Count > 0 ? (double)cancelled / orders.Count : 0,
                 Services = servicesList,
                 StatusBreakdown = orders
                     .GroupBy(o => o.Status)
@@ -235,6 +239,208 @@ public class ReportsController : ControllerBase
         catch (Exception ex)
         {
             return StatusCode(500, new { message = "Erro ao gerar relatório de faturamento", error = ex.Message });
+        }
+    }
+
+    /// <summary>
+    /// Ordens de serviço num período (usado pelo relatório diário/semanal/mensal do front)
+    /// </summary>
+    [HttpGet("service-orders")]
+    public async Task<IActionResult> GetServiceOrdersInPeriod([FromQuery] DateTime? startDate, [FromQuery] DateTime? endDate)
+    {
+        try
+        {
+            var start = startDate ?? DateTime.UtcNow.AddDays(-30);
+            var end = endDate ?? DateTime.UtcNow;
+
+            var orders = await _context.ServiceOrders
+                .Include(o => o.Customer)
+                .Include(o => o.Vehicle)
+                .Where(o => o.EntryDate >= start && o.EntryDate <= end)
+                .OrderByDescending(o => o.EntryDate)
+                .Select(o => new
+                {
+                    o.Id,
+                    o.Number,
+                    o.Status,
+                    o.EntryDate,
+                    CustomerName = o.Customer.Name,
+                    VehiclePlate = o.Vehicle.Plate,
+                    o.Value,
+                })
+                .ToListAsync();
+
+            return Ok(new
+            {
+                totalOrders = orders.Count,
+                totalValue = orders.Sum(o => o.Value),
+                orders,
+            });
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, new { message = "Erro ao gerar relatório de ordens por período", error = ex.Message });
+        }
+    }
+
+    /// <summary>
+    /// Funcionário que mais realizou serviços no período
+    /// </summary>
+    [HttpGet("top-employees")]
+    public async Task<IActionResult> GetTopEmployees([FromQuery] string period = "month")
+    {
+        try
+        {
+            var endDate = DateTime.UtcNow.Date;
+            var startDate = period.ToLower() == "week" ? endDate.AddDays(-7) : endDate.AddMonths(-1);
+
+            var orders = await _context.ServiceOrders
+                .Where(o => o.Status == "Entregue" &&
+                           o.FinalDate >= startDate &&
+                           o.FinalDate <= endDate.AddDays(1).AddSeconds(-1) &&
+                           o.ResponsibleUser != "")
+                .ToListAsync();
+
+            var employees = orders
+                .GroupBy(o => o.ResponsibleUser)
+                .Select(g => new
+                {
+                    Employee = g.Key,
+                    CompletedOrders = g.Count(),
+                    TotalValue = g.Sum(o => o.Value),
+                })
+                .OrderByDescending(e => e.CompletedOrders)
+                .ToList();
+
+            return Ok(new { period, startDate, endDate, employees });
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, new { message = "Erro ao gerar relatório de funcionários", error = ex.Message });
+        }
+    }
+
+    /// <summary>
+    /// Estoque atual por categoria e itens abaixo do mínimo
+    /// </summary>
+    [HttpGet("inventory")]
+    public async Task<IActionResult> GetInventoryReport()
+    {
+        try
+        {
+            var items = await _context.InventoryItems.ToListAsync();
+
+            var byCategory = items
+                .GroupBy(i => i.Category)
+                .Select(g => new
+                {
+                    Category = g.Key,
+                    ItemCount = g.Count(),
+                    TotalQuantity = g.Sum(i => i.Quantity),
+                    TotalValue = g.Sum(i => i.Quantity * i.SaleValue),
+                })
+                .OrderByDescending(c => c.TotalValue)
+                .ToList();
+
+            var lowStock = items
+                .Where(i => i.Quantity <= i.MinimumQuantity)
+                .Select(i => new { i.Id, i.Code, i.Description, i.Category, i.Quantity, i.MinimumQuantity })
+                .ToList();
+
+            return Ok(new
+            {
+                totalItems = items.Count,
+                totalValue = items.Sum(i => i.Quantity * i.SaleValue),
+                byCategory,
+                lowStock,
+            });
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, new { message = "Erro ao gerar relatório de estoque", error = ex.Message });
+        }
+    }
+
+    /// <summary>
+    /// Serviços mais realizados ao longo de um ano, quebrado por mês
+    /// </summary>
+    [HttpGet("annual-services")]
+    public async Task<IActionResult> GetAnnualServices([FromQuery] int? year = null)
+    {
+        try
+        {
+            var targetYear = year ?? DateTime.UtcNow.Year;
+            var start = new DateTime(targetYear, 1, 1, 0, 0, 0, DateTimeKind.Utc);
+            var end = start.AddYears(1).AddSeconds(-1);
+
+            var orders = await _context.ServiceOrders
+                .Where(o => o.EntryDate >= start && o.EntryDate <= end)
+                .ToListAsync();
+
+            var monthly = orders
+                .GroupBy(o => o.EntryDate.Month)
+                .Select(g => new
+                {
+                    Month = g.Key,
+                    OrderCount = g.Count(),
+                    TotalValue = g.Sum(o => o.Value),
+                })
+                .OrderBy(m => m.Month)
+                .ToList();
+
+            var topServicesYear = orders
+                .SelectMany(o => o.Services.Split(',', StringSplitOptions.RemoveEmptyEntries))
+                .Select(s => s.Trim())
+                .Where(s => !string.IsNullOrEmpty(s))
+                .GroupBy(s => s)
+                .Select(g => new TopServiceDto { ServiceName = g.Key, Count = g.Count(), TotalRevenue = 0 })
+                .OrderByDescending(s => s.Count)
+                .Take(10)
+                .ToList();
+
+            return Ok(new { year = targetYear, totalOrders = orders.Count, monthly, topServices = topServicesYear });
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, new { message = "Erro ao gerar relatório anual", error = ex.Message });
+        }
+    }
+
+    /// <summary>
+    /// Consumo de peças/insumos do estoque nas ordens de serviço concluídas
+    /// </summary>
+    [HttpGet("parts-consumption")]
+    public async Task<IActionResult> GetPartsConsumption([FromQuery] DateTime? startDate, [FromQuery] DateTime? endDate)
+    {
+        try
+        {
+            var start = startDate?.Date ?? DateTime.UtcNow.AddDays(-30).Date;
+            var end = endDate?.Date ?? DateTime.UtcNow.Date;
+
+            var items = await _context.ServiceOrderItems
+                .Include(i => i.InventoryItem)
+                .Include(i => i.ServiceOrder)
+                .Where(i => i.ServiceOrder.EntryDate >= start && i.ServiceOrder.EntryDate <= end.AddDays(1).AddSeconds(-1))
+                .ToListAsync();
+
+            var consumption = items
+                .GroupBy(i => new { i.InventoryItemId, i.InventoryItem.Code, i.InventoryItem.Description, i.InventoryItem.Category })
+                .Select(g => new
+                {
+                    g.Key.Code,
+                    g.Key.Description,
+                    g.Key.Category,
+                    QuantityUsed = g.Sum(i => i.Quantity),
+                    TotalValue = g.Sum(i => i.Quantity * i.UnitValue),
+                })
+                .OrderByDescending(c => c.QuantityUsed)
+                .ToList();
+
+            return Ok(new { period = new { start, end }, consumption });
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, new { message = "Erro ao gerar relatório de consumo de peças", error = ex.Message });
         }
     }
 }

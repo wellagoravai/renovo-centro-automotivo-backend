@@ -32,6 +32,7 @@ public class ServiceOrdersController : ControllerBase
             .Include(o => o.Customer)
             .Include(o => o.Vehicle)
             .Include(o => o.History)
+            .Include(o => o.Items).ThenInclude(i => i.InventoryItem)
             .AsQueryable();
 
         if (!string.IsNullOrWhiteSpace(status))
@@ -55,12 +56,80 @@ public class ServiceOrdersController : ControllerBase
             .Include(o => o.Customer)
             .Include(o => o.Vehicle)
             .Include(o => o.History)
+            .Include(o => o.Items).ThenInclude(i => i.InventoryItem)
             .FirstOrDefaultAsync(o => o.Id == id);
 
         if (order is null) return NotFound();
 
         var orderDto = _mapper.Map<ServiceOrderDto>(order);
         return Ok(orderDto);
+    }
+
+    [HttpPut("{id:guid}")]
+    [Authorize(Policy = "CanManageOrders")]
+    public async Task<IActionResult> Update(Guid id, [FromBody] UpdateServiceOrderDto updateDto)
+    {
+        var order = await _context.ServiceOrders
+            .Include(o => o.Customer)
+            .Include(o => o.Vehicle)
+            .Include(o => o.History)
+            .Include(o => o.Items).ThenInclude(i => i.InventoryItem)
+            .FirstOrDefaultAsync(o => o.Id == id);
+
+        if (order is null) return NotFound();
+
+        _mapper.Map(updateDto, order);
+        await _context.SaveChangesAsync();
+
+        var orderDto = _mapper.Map<ServiceOrderDto>(order);
+        return Ok(orderDto);
+    }
+
+    [HttpPost("{id:guid}/items")]
+    [Authorize(Policy = "CanManageOrders")]
+    public async Task<IActionResult> AddItem(Guid id, [FromBody] CreateServiceOrderItemDto request)
+    {
+        var order = await _context.ServiceOrders.FindAsync(id);
+        if (order is null) return NotFound();
+
+        var inventoryItem = await _context.InventoryItems.FindAsync(request.InventoryItemId);
+        if (inventoryItem is null) return BadRequest(new { message = "Item de estoque não encontrado." });
+
+        if (request.Quantity <= 0) return BadRequest(new { message = "Quantidade deve ser maior que zero." });
+
+        var item = new ServiceOrderItem
+        {
+            Id = Guid.NewGuid(),
+            ServiceOrderId = order.Id,
+            InventoryItemId = inventoryItem.Id,
+            Quantity = request.Quantity,
+            UnitValue = inventoryItem.SaleValue,
+        };
+
+        _context.ServiceOrderItems.Add(item);
+        await _context.SaveChangesAsync();
+
+        var updatedOrder = await _context.ServiceOrders
+            .Include(o => o.Customer)
+            .Include(o => o.Vehicle)
+            .Include(o => o.History)
+            .Include(o => o.Items).ThenInclude(i => i.InventoryItem)
+            .FirstAsync(o => o.Id == id);
+
+        return Ok(_mapper.Map<ServiceOrderDto>(updatedOrder));
+    }
+
+    [HttpDelete("{id:guid}/items/{itemId:guid}")]
+    [Authorize(Policy = "CanManageOrders")]
+    public async Task<IActionResult> RemoveItem(Guid id, Guid itemId)
+    {
+        var item = await _context.ServiceOrderItems.FirstOrDefaultAsync(i => i.Id == itemId && i.ServiceOrderId == id);
+        if (item is null) return NotFound();
+
+        _context.ServiceOrderItems.Remove(item);
+        await _context.SaveChangesAsync();
+
+        return NoContent();
     }
 
     [HttpPost]
@@ -164,6 +233,7 @@ public class ServiceOrdersController : ControllerBase
             EstimatedDate = request.EstimatedDate,
             Status = request.Status,
             ResponsibleUser = request.ResponsibleUser,
+            Photos = request.Photos,
             CustomerId = customer.Id,
             VehicleId = vehicle.Id,
             EntryDate = DateTime.UtcNow
@@ -191,13 +261,38 @@ public class ServiceOrdersController : ControllerBase
     [Authorize(Policy = "CanManageOrders")]
     public async Task<IActionResult> UpdateStatus(Guid id, [FromBody] UpdateServiceOrderStatusDto request)
     {
-        var order = await _context.ServiceOrders.FindAsync(id);
+        var order = await _context.ServiceOrders
+            .Include(o => o.Customer)
+            .Include(o => o.Vehicle)
+            .Include(o => o.History)
+            .Include(o => o.Items).ThenInclude(i => i.InventoryItem)
+            .FirstOrDefaultAsync(o => o.Id == id);
         if (order is null) return NotFound();
 
         var previousStatus = order.Status;
         order.Status = request.Status;
         order.Notes = request.Notes ?? order.Notes;
         order.FinalDate = request.Status == "Entregue" ? DateTime.UtcNow : order.FinalDate;
+
+        // "Entregue" é o estágio terminal da OS: na primeira vez que a ordem chega
+        // aqui, debita do estoque as peças lançadas (peças já foram fisicamente
+        // usadas nesse ponto, então a baixa não bloqueia a conclusão).
+        if (request.Status == "Entregue" && !order.StockDeducted && order.Items.Count > 0)
+        {
+            var inventoryIds = order.Items.Select(i => i.InventoryItemId).ToList();
+            var inventoryItems = await _context.InventoryItems
+                .Where(i => inventoryIds.Contains(i.Id))
+                .ToDictionaryAsync(i => i.Id);
+
+            foreach (var orderItem in order.Items)
+            {
+                if (inventoryItems.TryGetValue(orderItem.InventoryItemId, out var inventoryItem))
+                {
+                    inventoryItem.Quantity = Math.Max(0, inventoryItem.Quantity - orderItem.Quantity);
+                }
+            }
+            order.StockDeducted = true;
+        }
 
         _context.ServiceOrderHistories.Add(new ServiceOrderHistory
         {

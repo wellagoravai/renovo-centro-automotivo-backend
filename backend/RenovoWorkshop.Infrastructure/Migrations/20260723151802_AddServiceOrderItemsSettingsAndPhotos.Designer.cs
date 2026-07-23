@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using RenovoWorkshop.Infrastructure.Persistence;
 
@@ -10,9 +11,11 @@ using RenovoWorkshop.Infrastructure.Persistence;
 namespace RenovoWorkshop.Infrastructure.Migrations
 {
     [DbContext(typeof(RenovoWorkshopDbContext))]
-    partial class RenovoWorkshopDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260723151802_AddServiceOrderItemsSettingsAndPhotos")]
+    partial class AddServiceOrderItemsSettingsAndPhotos
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder.HasAnnotation("ProductVersion", "8.0.8");

@@ -68,7 +68,7 @@ public class CreateCheckListDto
     public string GeneralState { get; set; } = string.Empty;
     public string Observations { get; set; } = string.Empty;
     public string VisualDamage { get; set; } = string.Empty;
-    public string? Photos { get; set; }
+    public string Photos { get; set; } = string.Empty;
     public string ResponsibleUser { get; set; } = string.Empty;
     public string? GpsLocation { get; set; }
 }
