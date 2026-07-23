@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("RenovoWorkshop.Application")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+9170403e8ba5e0d7787378c10d4d6b2bcdc27b37")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+0e2ede6dfc50922981ecf17c5c80b1e9f66afc16")]
 [assembly: System.Reflection.AssemblyProductAttribute("RenovoWorkshop.Application")]
 [assembly: System.Reflection.AssemblyTitleAttribute("RenovoWorkshop.Application")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]
