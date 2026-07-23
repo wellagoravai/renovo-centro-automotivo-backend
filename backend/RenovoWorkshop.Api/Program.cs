@@ -135,6 +135,20 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseCors(app.Environment.IsDevelopment() ? "AllowLocalhost" : "AllowProduction");
+
+app.UseExceptionHandler(errorApp =>
+{
+    errorApp.Run(async context =>
+    {
+        var exception = context.Features.Get<Microsoft.AspNetCore.Diagnostics.IExceptionHandlerFeature>()?.Error;
+        context.RequestServices.GetRequiredService<ILogger<Program>>()
+            .LogError(exception, "Unhandled exception on {Path}", context.Request.Path);
+
+        context.Response.ContentType = "application/json";
+        context.Response.StatusCode = StatusCodes.Status500InternalServerError;
+        await context.Response.WriteAsJsonAsync(new { message = "Erro interno no servidor." });
+    });
+});
 app.UseHttpsRedirection();
 app.UseAuthentication();
 app.UseAuthorization();
