@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
+using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using RenovoWorkshop.Infrastructure.Persistence;
 
 #nullable disable
@@ -15,101 +16,91 @@ namespace RenovoWorkshop.Infrastructure.Migrations
         protected override void BuildModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
-            modelBuilder.HasAnnotation("ProductVersion", "8.0.8");
+            modelBuilder
+                .HasAnnotation("ProductVersion", "8.0.8")
+                .HasAnnotation("Relational:MaxIdentifierLength", 63);
+
+            NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
 
             modelBuilder.Entity("RenovoWorkshop.Domain.Entities.ApplicationUser", b =>
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("TEXT");
+                        .HasColumnType("uuid");
 
                     b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("TEXT");
+                        .HasColumnType("timestamp with time zone");
 
                     b.Property<string>("Email")
                         .IsRequired()
-                        .HasColumnType("TEXT");
+                        .HasColumnType("text");
 
                     b.Property<string>("FullName")
                         .IsRequired()
-                        .HasColumnType("TEXT");
+                        .HasColumnType("text");
 
                     b.Property<bool>("IsActive")
-                        .HasColumnType("INTEGER");
+                        .HasColumnType("boolean");
 
                     b.Property<string>("PasswordHash")
                         .IsRequired()
-                        .HasColumnType("TEXT");
+                        .HasColumnType("text");
 
                     b.Property<string>("Permissions")
                         .IsRequired()
-                        .HasColumnType("TEXT");
+                        .HasColumnType("text");
 
                     b.Property<string>("Role")
                         .IsRequired()
-                        .HasColumnType("TEXT");
+                        .HasColumnType("text");
 
                     b.Property<string>("UserName")
                         .IsRequired()
-                        .HasColumnType("TEXT");
+                        .HasColumnType("text");
 
                     b.HasKey("Id");
 
                     b.ToTable("Users");
-
-                    b.HasData(
-                        new
-                        {
-                            Id = new Guid("11111111-1111-1111-1111-111111111111"),
-                            CreatedAt = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
-                            Email = "admin@renovo.com.br",
-                            FullName = "Administrador Master",
-                            IsActive = true,
-                            PasswordHash = "$2a$11$DE/XOjuMgCwZHSgyv9STWOwUNW9nI/Rds4nAwA2gWmfB1zZ8bKgq2",
-                            Permissions = "dashboard.view,customers.read,customers.write,vehicles.read,vehicles.write,orders.read,orders.write,inventory.read,inventory.write,users.manage",
-                            Role = "Administrador",
-                            UserName = "admin"
-                        });
                 });
 
             modelBuilder.Entity("RenovoWorkshop.Domain.Entities.Customer", b =>
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("TEXT");
+                        .HasColumnType("uuid");
 
                     b.Property<string>("Address")
                         .IsRequired()
-                        .HasColumnType("TEXT");
+                        .HasColumnType("text");
 
                     b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("TEXT");
+                        .HasColumnType("timestamp with time zone");
 
                     b.Property<string>("Document")
                         .IsRequired()
                         .HasMaxLength(30)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("character varying(30)");
 
                     b.Property<string>("Email")
                         .IsRequired()
-                        .HasColumnType("TEXT");
+                        .HasColumnType("text");
 
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasMaxLength(200)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("character varying(200)");
 
                     b.Property<string>("Notes")
                         .IsRequired()
-                        .HasColumnType("TEXT");
+                        .HasColumnType("text");
 
                     b.Property<string>("Phone")
                         .IsRequired()
-                        .HasColumnType("TEXT");
+                        .HasColumnType("text");
 
                     b.Property<string>("WhatsApp")
                         .IsRequired()
-                        .HasColumnType("TEXT");
+                        .HasColumnType("text");
 
                     b.HasKey("Id");
 
@@ -120,54 +111,54 @@ namespace RenovoWorkshop.Infrastructure.Migrations
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("TEXT");
+                        .HasColumnType("uuid");
 
                     b.Property<decimal>("AverageValue")
                         .HasPrecision(12, 2)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("numeric(12,2)");
 
                     b.Property<string>("Brand")
                         .IsRequired()
-                        .HasColumnType("TEXT");
+                        .HasColumnType("text");
 
                     b.Property<string>("Category")
                         .IsRequired()
-                        .HasColumnType("TEXT");
+                        .HasColumnType("text");
 
                     b.Property<string>("Code")
                         .IsRequired()
                         .HasMaxLength(50)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("character varying(50)");
 
                     b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("TEXT");
+                        .HasColumnType("timestamp with time zone");
 
                     b.Property<string>("Description")
                         .IsRequired()
                         .HasMaxLength(300)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("character varying(300)");
 
                     b.Property<string>("Location")
                         .IsRequired()
-                        .HasColumnType("TEXT");
+                        .HasColumnType("text");
 
                     b.Property<int>("MinimumQuantity")
-                        .HasColumnType("INTEGER");
+                        .HasColumnType("integer");
 
                     b.Property<decimal>("PurchaseValue")
                         .HasPrecision(12, 2)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("numeric(12,2)");
 
                     b.Property<int>("Quantity")
-                        .HasColumnType("INTEGER");
+                        .HasColumnType("integer");
 
                     b.Property<decimal>("SaleValue")
                         .HasPrecision(12, 2)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("numeric(12,2)");
 
                     b.Property<string>("Supplier")
                         .IsRequired()
-                        .HasColumnType("TEXT");
+                        .HasColumnType("text");
 
                     b.HasKey("Id");
 
@@ -178,29 +169,29 @@ namespace RenovoWorkshop.Infrastructure.Migrations
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("TEXT");
+                        .HasColumnType("uuid");
 
                     b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("TEXT");
+                        .HasColumnType("timestamp with time zone");
 
                     b.Property<DateTime?>("ExpectedDeliveryDate")
-                        .HasColumnType("TEXT");
+                        .HasColumnType("timestamp with time zone");
 
                     b.Property<string>("Notes")
                         .IsRequired()
-                        .HasColumnType("TEXT");
+                        .HasColumnType("text");
 
                     b.Property<string>("Number")
                         .IsRequired()
                         .HasMaxLength(50)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("character varying(50)");
 
                     b.Property<string>("Status")
                         .IsRequired()
-                        .HasColumnType("TEXT");
+                        .HasColumnType("text");
 
                     b.Property<Guid>("SupplierId")
-                        .HasColumnType("TEXT");
+                        .HasColumnType("uuid");
 
                     b.HasKey("Id");
 
@@ -213,20 +204,20 @@ namespace RenovoWorkshop.Infrastructure.Migrations
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("TEXT");
+                        .HasColumnType("uuid");
 
                     b.Property<Guid>("InventoryItemId")
-                        .HasColumnType("TEXT");
+                        .HasColumnType("uuid");
 
                     b.Property<Guid>("PurchaseOrderId")
-                        .HasColumnType("TEXT");
+                        .HasColumnType("uuid");
 
                     b.Property<int>("Quantity")
-                        .HasColumnType("INTEGER");
+                        .HasColumnType("integer");
 
                     b.Property<decimal>("UnitValue")
                         .HasPrecision(12, 2)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("numeric(12,2)");
 
                     b.HasKey("Id");
 
@@ -241,80 +232,80 @@ namespace RenovoWorkshop.Infrastructure.Migrations
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("TEXT");
+                        .HasColumnType("uuid");
 
                     b.Property<string>("ApprovalLink")
-                        .HasColumnType("TEXT");
+                        .HasColumnType("text");
 
                     b.Property<Guid?>("ChecklistId")
-                        .HasColumnType("TEXT");
+                        .HasColumnType("uuid");
 
                     b.Property<Guid>("CustomerId")
-                        .HasColumnType("TEXT");
+                        .HasColumnType("uuid");
 
                     b.Property<string>("Diagnosis")
                         .IsRequired()
-                        .HasColumnType("TEXT");
+                        .HasColumnType("text");
 
                     b.Property<DateTime>("EntryDate")
-                        .HasColumnType("TEXT");
+                        .HasColumnType("timestamp with time zone");
 
                     b.Property<DateTime?>("EstimatedDate")
-                        .HasColumnType("TEXT");
+                        .HasColumnType("timestamp with time zone");
 
                     b.Property<decimal>("EstimatedTime")
                         .HasPrecision(10, 2)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("numeric(10,2)");
 
                     b.Property<string>("Filters")
                         .IsRequired()
-                        .HasColumnType("TEXT");
+                        .HasColumnType("text");
 
                     b.Property<DateTime?>("FinalDate")
-                        .HasColumnType("TEXT");
+                        .HasColumnType("timestamp with time zone");
 
                     b.Property<bool>("HasChecklist")
-                        .HasColumnType("INTEGER");
+                        .HasColumnType("boolean");
 
                     b.Property<string>("Notes")
                         .IsRequired()
-                        .HasColumnType("TEXT");
+                        .HasColumnType("text");
 
                     b.Property<string>("Number")
                         .IsRequired()
                         .HasMaxLength(50)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("character varying(50)");
 
                     b.Property<string>("Oils")
                         .IsRequired()
-                        .HasColumnType("TEXT");
+                        .HasColumnType("text");
 
                     b.Property<string>("Parts")
                         .IsRequired()
-                        .HasColumnType("TEXT");
+                        .HasColumnType("text");
 
                     b.Property<string>("ProblemReported")
                         .IsRequired()
-                        .HasColumnType("TEXT");
+                        .HasColumnType("text");
 
                     b.Property<string>("ResponsibleUser")
                         .IsRequired()
-                        .HasColumnType("TEXT");
+                        .HasColumnType("text");
 
                     b.Property<string>("Services")
                         .IsRequired()
-                        .HasColumnType("TEXT");
+                        .HasColumnType("text");
 
                     b.Property<string>("Status")
                         .IsRequired()
-                        .HasColumnType("TEXT");
+                        .HasColumnType("text");
 
                     b.Property<decimal>("Value")
                         .HasPrecision(12, 2)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("numeric(12,2)");
 
                     b.Property<Guid>("VehicleId")
-                        .HasColumnType("TEXT");
+                        .HasColumnType("uuid");
 
                     b.HasKey("Id");
 
@@ -329,27 +320,27 @@ namespace RenovoWorkshop.Infrastructure.Migrations
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("TEXT");
+                        .HasColumnType("uuid");
 
                     b.Property<DateTime>("ChangedAt")
-                        .HasColumnType("TEXT");
+                        .HasColumnType("timestamp with time zone");
 
                     b.Property<string>("ChangedBy")
                         .IsRequired()
                         .HasMaxLength(200)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("character varying(200)");
 
                     b.Property<string>("Notes")
                         .IsRequired()
-                        .HasColumnType("TEXT");
+                        .HasColumnType("text");
 
                     b.Property<Guid>("ServiceOrderId")
-                        .HasColumnType("TEXT");
+                        .HasColumnType("uuid");
 
                     b.Property<string>("Status")
                         .IsRequired()
                         .HasMaxLength(80)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("character varying(80)");
 
                     b.HasKey("Id");
 
@@ -362,31 +353,31 @@ namespace RenovoWorkshop.Infrastructure.Migrations
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("TEXT");
+                        .HasColumnType("uuid");
 
                     b.Property<string>("Address")
                         .IsRequired()
-                        .HasColumnType("TEXT");
+                        .HasColumnType("text");
 
                     b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("TEXT");
+                        .HasColumnType("timestamp with time zone");
 
                     b.Property<string>("Document")
                         .IsRequired()
-                        .HasColumnType("TEXT");
+                        .HasColumnType("text");
 
                     b.Property<string>("Email")
                         .IsRequired()
-                        .HasColumnType("TEXT");
+                        .HasColumnType("text");
 
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasMaxLength(200)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("character varying(200)");
 
                     b.Property<string>("Phone")
                         .IsRequired()
-                        .HasColumnType("TEXT");
+                        .HasColumnType("text");
 
                     b.HasKey("Id");
 
@@ -397,55 +388,55 @@ namespace RenovoWorkshop.Infrastructure.Migrations
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("TEXT");
+                        .HasColumnType("uuid");
 
                     b.Property<string>("Brand")
                         .IsRequired()
-                        .HasColumnType("TEXT");
+                        .HasColumnType("text");
 
                     b.Property<string>("Chassis")
                         .IsRequired()
-                        .HasColumnType("TEXT");
+                        .HasColumnType("text");
 
                     b.Property<string>("Color")
                         .IsRequired()
-                        .HasColumnType("TEXT");
+                        .HasColumnType("text");
 
                     b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("TEXT");
+                        .HasColumnType("timestamp with time zone");
 
                     b.Property<Guid>("CustomerId")
-                        .HasColumnType("TEXT");
+                        .HasColumnType("uuid");
 
                     b.Property<string>("Engine")
                         .IsRequired()
-                        .HasColumnType("TEXT");
+                        .HasColumnType("text");
 
                     b.Property<string>("Fuel")
                         .IsRequired()
-                        .HasColumnType("TEXT");
+                        .HasColumnType("text");
 
                     b.Property<int>("Mileage")
-                        .HasColumnType("INTEGER");
+                        .HasColumnType("integer");
 
                     b.Property<string>("Model")
                         .IsRequired()
-                        .HasColumnType("TEXT");
+                        .HasColumnType("text");
 
                     b.Property<string>("Photos")
-                        .HasColumnType("TEXT");
+                        .HasColumnType("text");
 
                     b.Property<string>("Plate")
                         .IsRequired()
                         .HasMaxLength(20)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("character varying(20)");
 
                     b.Property<string>("Renavam")
                         .IsRequired()
-                        .HasColumnType("TEXT");
+                        .HasColumnType("text");
 
                     b.Property<int>("Year")
-                        .HasColumnType("INTEGER");
+                        .HasColumnType("integer");
 
                     b.HasKey("Id");
 
@@ -458,111 +449,111 @@ namespace RenovoWorkshop.Infrastructure.Migrations
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("TEXT");
+                        .HasColumnType("uuid");
 
                     b.Property<bool>("AirConditioning")
-                        .HasColumnType("INTEGER");
+                        .HasColumnType("boolean");
 
                     b.Property<DateTime>("CheckedAt")
-                        .HasColumnType("TEXT");
+                        .HasColumnType("timestamp with time zone");
 
                     b.Property<string>("CoolingLevel")
                         .IsRequired()
-                        .HasColumnType("TEXT");
+                        .HasColumnType("text");
 
                     b.Property<bool>("Dashboard")
-                        .HasColumnType("INTEGER");
+                        .HasColumnType("boolean");
 
                     b.Property<bool>("Documents")
-                        .HasColumnType("INTEGER");
+                        .HasColumnType("boolean");
 
                     b.Property<string>("FuelLevel")
                         .IsRequired()
-                        .HasColumnType("TEXT");
+                        .HasColumnType("text");
 
                     b.Property<string>("GeneralState")
                         .IsRequired()
-                        .HasColumnType("TEXT");
+                        .HasColumnType("text");
 
                     b.Property<string>("GpsLocation")
-                        .HasColumnType("TEXT");
+                        .HasColumnType("text");
 
                     b.Property<bool>("Headlights")
-                        .HasColumnType("INTEGER");
+                        .HasColumnType("boolean");
 
                     b.Property<bool>("Jack")
-                        .HasColumnType("INTEGER");
+                        .HasColumnType("boolean");
 
                     b.Property<int>("Mileage")
-                        .HasColumnType("INTEGER");
+                        .HasColumnType("integer");
 
                     b.Property<bool>("Mirrors")
-                        .HasColumnType("INTEGER");
+                        .HasColumnType("boolean");
 
                     b.Property<bool>("Multimedia")
-                        .HasColumnType("INTEGER");
+                        .HasColumnType("boolean");
 
                     b.Property<string>("Observations")
                         .IsRequired()
-                        .HasColumnType("TEXT");
+                        .HasColumnType("text");
 
                     b.Property<string>("OilLevel")
                         .IsRequired()
-                        .HasColumnType("TEXT");
+                        .HasColumnType("text");
 
                     b.Property<string>("Photos")
                         .IsRequired()
-                        .HasColumnType("TEXT");
+                        .HasColumnType("text");
 
                     b.Property<string>("ResponsibleUser")
                         .IsRequired()
                         .HasMaxLength(200)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("character varying(200)");
 
                     b.Property<bool>("Rims")
-                        .HasColumnType("INTEGER");
+                        .HasColumnType("boolean");
 
                     b.Property<bool>("Seats")
-                        .HasColumnType("INTEGER");
+                        .HasColumnType("boolean");
 
                     b.Property<Guid>("ServiceOrderId")
-                        .HasColumnType("TEXT");
+                        .HasColumnType("uuid");
 
                     b.Property<bool>("SpareKey")
-                        .HasColumnType("INTEGER");
+                        .HasColumnType("boolean");
 
                     b.Property<bool>("SpareTire")
-                        .HasColumnType("INTEGER");
+                        .HasColumnType("boolean");
 
                     b.Property<bool>("Taillights")
-                        .HasColumnType("INTEGER");
+                        .HasColumnType("boolean");
 
                     b.Property<string>("TireCondition")
                         .IsRequired()
-                        .HasColumnType("TEXT");
+                        .HasColumnType("text");
 
                     b.Property<string>("TirePressure")
                         .IsRequired()
-                        .HasColumnType("TEXT");
+                        .HasColumnType("text");
 
                     b.Property<bool>("Triangle")
-                        .HasColumnType("INTEGER");
+                        .HasColumnType("boolean");
 
                     b.Property<Guid>("VehicleId")
-                        .HasColumnType("TEXT");
+                        .HasColumnType("uuid");
 
                     b.Property<string>("VisualDamage")
                         .IsRequired()
-                        .HasColumnType("TEXT");
+                        .HasColumnType("text");
 
                     b.Property<bool>("Windows")
-                        .HasColumnType("INTEGER");
+                        .HasColumnType("boolean");
 
                     b.Property<bool>("Windshield")
-                        .HasColumnType("INTEGER");
+                        .HasColumnType("boolean");
 
                     b.Property<bool>("Wipers")
-                        .HasColumnType("INTEGER");
+                        .HasColumnType("boolean");
 
                     b.HasKey("Id");
 
@@ -577,42 +568,42 @@ namespace RenovoWorkshop.Infrastructure.Migrations
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("TEXT");
+                        .HasColumnType("uuid");
 
                     b.Property<Guid?>("CustomerId")
-                        .HasColumnType("TEXT");
+                        .HasColumnType("uuid");
 
                     b.Property<string>("DeliveryStatus")
                         .IsRequired()
-                        .HasColumnType("TEXT");
+                        .HasColumnType("text");
 
                     b.Property<string>("Error")
-                        .HasColumnType("TEXT");
+                        .HasColumnType("text");
 
                     b.Property<string>("Message")
                         .IsRequired()
-                        .HasColumnType("TEXT");
+                        .HasColumnType("text");
 
                     b.Property<string>("Phone")
                         .IsRequired()
-                        .HasColumnType("TEXT");
+                        .HasColumnType("text");
 
                     b.Property<string>("Provider")
                         .IsRequired()
-                        .HasColumnType("TEXT");
+                        .HasColumnType("text");
 
                     b.Property<string>("ProviderMessageId")
-                        .HasColumnType("TEXT");
+                        .HasColumnType("text");
 
                     b.Property<DateTime>("SentAt")
-                        .HasColumnType("TEXT");
+                        .HasColumnType("timestamp with time zone");
 
                     b.Property<Guid?>("ServiceOrderId")
-                        .HasColumnType("TEXT");
+                        .HasColumnType("uuid");
 
                     b.Property<string>("Status")
                         .IsRequired()
-                        .HasColumnType("TEXT");
+                        .HasColumnType("text");
 
                     b.HasKey("Id");
 

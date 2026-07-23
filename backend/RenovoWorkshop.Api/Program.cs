@@ -43,8 +43,14 @@ builder.Services.AddSwaggerGen(c =>
     });
 });
 
+var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
 builder.Services.AddDbContext<RenovoWorkshopDbContext>(options =>
-    options.UseSqlite(builder.Configuration.GetConnectionString("DefaultConnection")));
+{
+    if (!string.IsNullOrEmpty(connectionString) && connectionString.Contains("Host=", StringComparison.OrdinalIgnoreCase))
+        options.UseNpgsql(connectionString);
+    else
+        options.UseSqlite(connectionString);
+});
 
 builder.Services.AddCors(options =>
 {

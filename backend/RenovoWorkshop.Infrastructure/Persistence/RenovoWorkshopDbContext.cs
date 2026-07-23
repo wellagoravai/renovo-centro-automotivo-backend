@@ -1,5 +1,4 @@
 using Microsoft.EntityFrameworkCore;
-using RenovoWorkshop.Domain.Constants;
 using RenovoWorkshop.Domain.Entities;
 
 namespace RenovoWorkshop.Infrastructure.Persistence;
@@ -120,19 +119,6 @@ public class RenovoWorkshopDbContext : DbContext
                 .WithMany()
                 .HasForeignKey(i => i.InventoryItemId)
                 .OnDelete(DeleteBehavior.Restrict);
-        });
-
-        modelBuilder.Entity<ApplicationUser>().HasData(new ApplicationUser
-        {
-            Id = Guid.Parse("11111111-1111-1111-1111-111111111111"),
-            UserName = "admin",
-            Email = "admin@renovo.com.br",
-            PasswordHash = BCrypt.Net.BCrypt.HashPassword("Renovo@123"),
-            FullName = "Administrador Master",
-            Role = UserRoles.Administrator,
-            Permissions = string.Join(",", UserPermissions.ForRole(UserRoles.Administrator)),
-            IsActive = true,
-            CreatedAt = new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc)
         });
     }
 }

@@ -370,3 +370,5 @@ C:\Users\W-Works\Documents\WellWorks Site Renovo\renovo-centro-automotivo-backen
 C:\Users\W-Works\Documents\WellWorks Site Renovo\renovo-centro-automotivo-backend\backend\RenovoWorkshop.Api\obj\Debug\net8.0\RenovoWorkshop.Api.pdb
 C:\Users\W-Works\Documents\WellWorks Site Renovo\renovo-centro-automotivo-backend\backend\RenovoWorkshop.Api\obj\Debug\net8.0\RenovoWorkshop.Api.genruntimeconfig.cache
 C:\Users\W-Works\Documents\WellWorks Site Renovo\renovo-centro-automotivo-backend\backend\RenovoWorkshop.Api\obj\Debug\net8.0\ref\RenovoWorkshop.Api.dll
+C:\Users\W-Works\Documents\WellWorks Site Renovo\renovo-centro-automotivo-backend\backend\RenovoWorkshop.Api\bin\Debug\net8.0\Npgsql.dll
+C:\Users\W-Works\Documents\WellWorks Site Renovo\renovo-centro-automotivo-backend\backend\RenovoWorkshop.Api\bin\Debug\net8.0\Npgsql.EntityFrameworkCore.PostgreSQL.dll
