@@ -144,5 +144,11 @@ public class RenovoWorkshopDbContext : DbContext
             entity.Property(s => s.Phone).HasMaxLength(30);
             entity.Property(s => s.Email).HasMaxLength(200);
         });
+
+        modelBuilder.Entity<WhatsAppMessageLog>(entity =>
+        {
+            entity.HasKey(m => m.Id);
+            entity.Property(m => m.Direction).IsRequired().HasMaxLength(20).HasDefaultValue("Outbound");
+        });
     }
 }

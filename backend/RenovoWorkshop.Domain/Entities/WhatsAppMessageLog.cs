@@ -13,4 +13,5 @@ public class WhatsAppMessageLog
     public string? ProviderMessageId { get; set; }
     public string? Error { get; set; }
     public string Provider { get; set; } = "WhatsAppBusiness";
+    public string Direction { get; set; } = "Outbound";
 }

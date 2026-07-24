@@ -2,8 +2,6 @@ using Microsoft.Extensions.Configuration;
 using RenovoWorkshop.Application.Interfaces;
 using RenovoWorkshop.Domain.Entities;
 using RenovoWorkshop.Infrastructure.Persistence;
-using System.Net.Http.Headers;
-using System.Net.Http.Json;
 
 namespace RenovoWorkshop.Infrastructure.Services;
 
@@ -11,19 +9,34 @@ public class WhatsAppService : IWhatsAppService
 {
     private readonly RenovoWorkshopDbContext? _context;
     private readonly IConfiguration? _configuration;
-    private readonly HttpClient _httpClient;
+    private readonly EvolutionApiClient? _evolutionClient;
 
-    public WhatsAppService(RenovoWorkshopDbContext? context, IConfiguration? configuration)
+    public WhatsAppService(RenovoWorkshopDbContext? context, IConfiguration? configuration, EvolutionApiClient? evolutionClient = null)
     {
         _context = context;
         _configuration = configuration;
-        _httpClient = new HttpClient();
+        _evolutionClient = evolutionClient;
     }
 
     public string BuildStatusMessage(ServiceOrder order, Customer customer, string previousStatus, string newStatus, string? notes = null)
     {
-        var details = string.IsNullOrWhiteSpace(notes) ? "Acompanhe o andamento da sua ordem." : notes.Trim();
-        return $"Olá {customer.Name}! A ordem {order.Number} mudou de \"{previousStatus}\" para \"{newStatus}\". Detalhes: {details}";
+        var details = string.IsNullOrWhiteSpace(notes) ? null : notes.Trim();
+
+        return newStatus switch
+        {
+            "Aguardando aprovação" =>
+                $"Olá {customer.Name}! O orçamento da sua ordem {order.Number} está pronto para aprovação." +
+                (details is null ? string.Empty : $" {details}") +
+                " Responda SIM para aprovar ou NÃO para recusar o orçamento.",
+            "Em manutenção" =>
+                $"Olá {customer.Name}! Sua ordem {order.Number} entrou em manutenção." +
+                (details is null ? string.Empty : $" {details}"),
+            "Pronto para retirada" =>
+                $"Olá {customer.Name}! Seu veículo já está pronto para retirada (ordem {order.Number})." +
+                (details is null ? string.Empty : $" {details}"),
+            _ =>
+                $"Olá {customer.Name}! A ordem {order.Number} mudou de \"{previousStatus}\" para \"{newStatus}\". Detalhes: {details ?? "Acompanhe o andamento da sua ordem."}"
+        };
     }
 
     public async Task<WhatsAppSendResult> SendStatusMessageAsync(ServiceOrder order, Customer customer, string previousStatus, string newStatus, string? notes = null, CancellationToken cancellationToken = default)
@@ -34,59 +47,63 @@ public class WhatsAppService : IWhatsAppService
 
         if (string.IsNullOrWhiteSpace(recipient))
         {
-            await LogMessageAsync(order, customer, string.Empty, "Skipped", "Número de WhatsApp não informado.", string.Empty, cancellationToken);
+            await LogMessageAsync(order.Id, customer.Id, string.Empty, order.Status, "Skipped", "Número de WhatsApp não informado.", string.Empty, "Outbound", cancellationToken);
             return new WhatsAppSendResult(false, "Número de WhatsApp não informado.");
         }
 
         var message = BuildStatusMessage(order, customer, previousStatus, newStatus, notes);
-        var isEnabled = _configuration?["WhatsApp:IsEnabled"]?.Equals("true", StringComparison.OrdinalIgnoreCase) == true;
+        return await SendAsync(recipient, message, order.Id, customer.Id, order.Status, cancellationToken);
+    }
 
+    public async Task<WhatsAppSendResult> SendRawMessageAsync(string phone, string text, Guid? serviceOrderId = null, Guid? customerId = null, CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(phone))
+        {
+            return new WhatsAppSendResult(false, "Número de WhatsApp não informado.");
+        }
+
+        return await SendAsync(phone, text, serviceOrderId, customerId, string.Empty, cancellationToken);
+    }
+
+    private async Task<WhatsAppSendResult> SendAsync(string recipient, string message, Guid? serviceOrderId, Guid? customerId, string statusLabel, CancellationToken cancellationToken)
+    {
+        var isEnabled = _configuration?["WhatsApp:IsEnabled"]?.Equals("true", StringComparison.OrdinalIgnoreCase) == true;
         if (!isEnabled)
         {
-            await LogMessageAsync(order, customer, recipient, "Queued", "Integração desabilitada no appsettings.", message, cancellationToken);
+            await LogMessageAsync(serviceOrderId, customerId, recipient, statusLabel, "Queued", "Integração desabilitada no appsettings.", message, "Outbound", cancellationToken);
             return new WhatsAppSendResult(true, "Mensagem registrada como pendente.");
         }
 
-        var endpoint = _configuration?["WhatsApp:ApiUrl"];
-        if (string.IsNullOrWhiteSpace(endpoint))
+        var baseUrl = _configuration?["WhatsApp:Evolution:BaseUrl"];
+        var apiKey = _configuration?["WhatsApp:Evolution:ApiKey"];
+        var instance = _configuration?["WhatsApp:Evolution:Instance"];
+        if (string.IsNullOrWhiteSpace(baseUrl) || string.IsNullOrWhiteSpace(instance) || _evolutionClient is null)
         {
-            await LogMessageAsync(order, customer, recipient, "Queued", "Endpoint de WhatsApp não configurado.", message, cancellationToken);
-            return new WhatsAppSendResult(true, "Endpoint não configurado; mensagem pendente.");
+            await LogMessageAsync(serviceOrderId, customerId, recipient, statusLabel, "Queued", "Evolution API não configurada.", message, "Outbound", cancellationToken);
+            return new WhatsAppSendResult(true, "Evolution API não configurada; mensagem pendente.");
         }
 
         try
         {
-            var payload = new
+            var result = await _evolutionClient.SendTextAsync(baseUrl, apiKey ?? string.Empty, instance, NormalizePhone(recipient), message, cancellationToken);
+
+            if (result.Success)
             {
-                to = NormalizePhone(recipient),
-                from = _configuration?["WhatsApp:From"],
-                message
-            };
-
-            using var request = new HttpRequestMessage(HttpMethod.Post, endpoint);
-            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", _configuration?["WhatsApp:ApiToken"] ?? string.Empty);
-            request.Content = JsonContent.Create(payload);
-
-            using var response = await _httpClient.SendAsync(request, cancellationToken);
-            var responseBody = await response.Content.ReadAsStringAsync(cancellationToken);
-
-            if (response.IsSuccessStatusCode)
-            {
-                await LogMessageAsync(order, customer, recipient, "Sent", null, message, cancellationToken, responseBody);
-                return new WhatsAppSendResult(true, "Mensagem enviada com sucesso.", ProviderMessageId: responseBody);
+                await LogMessageAsync(serviceOrderId, customerId, recipient, statusLabel, "Sent", null, message, "Outbound", cancellationToken, result.MessageId);
+                return new WhatsAppSendResult(true, "Mensagem enviada com sucesso.", ProviderMessageId: result.MessageId);
             }
 
-            await LogMessageAsync(order, customer, recipient, "Failed", $"Status: {(int)response.StatusCode}; {responseBody}", message, cancellationToken);
-            return new WhatsAppSendResult(false, "Falha ao enviar mensagem.", Error: $"Status: {(int)response.StatusCode}; {responseBody}");
+            await LogMessageAsync(serviceOrderId, customerId, recipient, statusLabel, "Failed", result.Error, message, "Outbound", cancellationToken);
+            return new WhatsAppSendResult(false, "Falha ao enviar mensagem.", Error: result.Error);
         }
         catch (Exception ex)
         {
-            await LogMessageAsync(order, customer, recipient, "Failed", ex.Message, message, cancellationToken);
+            await LogMessageAsync(serviceOrderId, customerId, recipient, statusLabel, "Failed", ex.Message, message, "Outbound", cancellationToken);
             return new WhatsAppSendResult(false, "Erro ao enviar mensagem.", Error: ex.Message);
         }
     }
 
-    private async Task LogMessageAsync(ServiceOrder order, Customer customer, string phone, string deliveryStatus, string? error, string message, CancellationToken cancellationToken, string? providerMessageId = null)
+    private async Task LogMessageAsync(Guid? serviceOrderId, Guid? customerId, string phone, string statusLabel, string deliveryStatus, string? error, string message, string direction, CancellationToken cancellationToken, string? providerMessageId = null)
     {
         if (_context is null)
         {
@@ -96,16 +113,17 @@ public class WhatsAppService : IWhatsAppService
         _context.WhatsAppMessageLogs.Add(new WhatsAppMessageLog
         {
             Id = Guid.NewGuid(),
-            ServiceOrderId = order.Id,
-            CustomerId = customer.Id,
+            ServiceOrderId = serviceOrderId,
+            CustomerId = customerId,
             Phone = phone,
-            Status = order.Status,
+            Status = statusLabel,
             Message = message,
             SentAt = DateTime.UtcNow,
             DeliveryStatus = deliveryStatus,
             ProviderMessageId = providerMessageId,
             Error = error,
-            Provider = "WhatsAppBusiness"
+            Provider = "Evolution",
+            Direction = direction
         });
 
         await _context.SaveChangesAsync(cancellationToken);

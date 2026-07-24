@@ -16,13 +16,13 @@ public class ServiceOrdersController : ControllerBase
 {
     private readonly RenovoWorkshopDbContext _context;
     private readonly IMapper _mapper;
-    private readonly IWhatsAppService _whatsAppService;
+    private readonly IServiceOrderStatusService _statusService;
 
-    public ServiceOrdersController(RenovoWorkshopDbContext context, IMapper mapper, IWhatsAppService whatsAppService)
+    public ServiceOrdersController(RenovoWorkshopDbContext context, IMapper mapper, IServiceOrderStatusService statusService)
     {
         _context = context;
         _mapper = mapper;
-        _whatsAppService = whatsAppService;
+        _statusService = statusService;
     }
 
     [HttpGet]
@@ -261,59 +261,11 @@ public class ServiceOrdersController : ControllerBase
     [Authorize(Policy = "CanManageOrders")]
     public async Task<IActionResult> UpdateStatus(Guid id, [FromBody] UpdateServiceOrderStatusDto request)
     {
-        var order = await _context.ServiceOrders
-            .Include(o => o.Customer)
-            .Include(o => o.Vehicle)
-            .Include(o => o.History)
-            .Include(o => o.Items).ThenInclude(i => i.InventoryItem)
-            .FirstOrDefaultAsync(o => o.Id == id);
-        if (order is null) return NotFound();
+        var result = await _statusService.ChangeStatusAsync(id, request.Status, request.Notes, request.ChangedBy, HttpContext.RequestAborted);
+        if (result.Order is null) return NotFound();
 
-        var previousStatus = order.Status;
-        order.Status = request.Status;
-        order.Notes = request.Notes ?? order.Notes;
-        order.FinalDate = request.Status == "Entregue" ? DateTime.UtcNow : order.FinalDate;
-
-        // "Entregue" é o estágio terminal da OS: na primeira vez que a ordem chega
-        // aqui, debita do estoque as peças lançadas (peças já foram fisicamente
-        // usadas nesse ponto, então a baixa não bloqueia a conclusão).
-        if (request.Status == "Entregue" && !order.StockDeducted && order.Items.Count > 0)
-        {
-            var inventoryIds = order.Items.Select(i => i.InventoryItemId).ToList();
-            var inventoryItems = await _context.InventoryItems
-                .Where(i => inventoryIds.Contains(i.Id))
-                .ToDictionaryAsync(i => i.Id);
-
-            foreach (var orderItem in order.Items)
-            {
-                if (inventoryItems.TryGetValue(orderItem.InventoryItemId, out var inventoryItem))
-                {
-                    inventoryItem.Quantity = Math.Max(0, inventoryItem.Quantity - orderItem.Quantity);
-                }
-            }
-            order.StockDeducted = true;
-        }
-
-        _context.ServiceOrderHistories.Add(new ServiceOrderHistory
-        {
-            Id = Guid.NewGuid(),
-            ServiceOrderId = order.Id,
-            Status = request.Status,
-            ChangedAt = DateTime.UtcNow,
-            ChangedBy = request.ChangedBy,
-            Notes = request.Notes ?? $"Status alterado de {previousStatus} para {request.Status}"
-        });
-
-        await _context.SaveChangesAsync();
-
-        var customer = await _context.Customers.FindAsync(order.CustomerId);
-        if (customer is not null)
-        {
-            await _whatsAppService.SendStatusMessageAsync(order, customer, previousStatus, request.Status, request.Notes);
-        }
-
-        var orderDto = _mapper.Map<ServiceOrderDto>(order);
-        return Ok(new { message = "Status atualizado com sucesso.", order = orderDto });
+        var orderDto = _mapper.Map<ServiceOrderDto>(result.Order);
+        return Ok(new { message = result.Message, order = orderDto });
     }
 
     [HttpPatch("{id:guid}/checklist")]
