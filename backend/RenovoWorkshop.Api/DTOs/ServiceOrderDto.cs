@@ -29,6 +29,9 @@ public class ServiceOrderDto
     public string VehiclePlate { get; set; } = string.Empty;
     public string VehicleBrand { get; set; } = string.Empty;
     public string VehicleModel { get; set; } = string.Empty;
+    public string VehicleColor { get; set; } = string.Empty;
+    public int VehicleYear { get; set; }
+    public int VehicleMileage { get; set; }
     public List<ServiceOrderHistoryDto> History { get; set; } = new();
     public List<ServiceOrderItemDto> Items { get; set; } = new();
 }
@@ -56,6 +59,7 @@ public class CreateServiceOrderDto
 public class CreateServiceOrderWithCustomerVehicleDto
 {
     public string ProblemReported { get; set; } = string.Empty;
+    public string Services { get; set; } = string.Empty;
     public string Notes { get; set; } = string.Empty;
     public DateTime? EstimatedDate { get; set; }
     public string Status { get; set; } = "Recebido";

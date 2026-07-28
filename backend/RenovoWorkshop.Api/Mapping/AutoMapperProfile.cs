@@ -30,6 +30,9 @@ public class AutoMapperProfile : Profile
             .ForMember(dest => dest.VehiclePlate, opt => opt.MapFrom(src => src.Vehicle.Plate))
             .ForMember(dest => dest.VehicleBrand, opt => opt.MapFrom(src => src.Vehicle.Brand))
             .ForMember(dest => dest.VehicleModel, opt => opt.MapFrom(src => src.Vehicle.Model))
+            .ForMember(dest => dest.VehicleColor, opt => opt.MapFrom(src => src.Vehicle.Color))
+            .ForMember(dest => dest.VehicleYear, opt => opt.MapFrom(src => src.Vehicle.Year))
+            .ForMember(dest => dest.VehicleMileage, opt => opt.MapFrom(src => src.Vehicle.Mileage))
             .ForMember(dest => dest.History, opt => opt.MapFrom(src => src.History))
             .ForMember(dest => dest.Items, opt => opt.MapFrom(src => src.Items));
 

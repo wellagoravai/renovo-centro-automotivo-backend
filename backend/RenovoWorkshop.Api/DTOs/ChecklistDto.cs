@@ -10,6 +10,7 @@ public class VehicleCheckListDto
     public string TireCondition { get; set; } = string.Empty;
     public string CoolingLevel { get; set; } = string.Empty;
     public string OilLevel { get; set; } = string.Empty;
+    public string SteeringFluidLevel { get; set; } = string.Empty;
     public string TirePressure { get; set; } = string.Empty;
     public bool SpareTire { get; set; }
     public bool Rims { get; set; }
@@ -48,6 +49,7 @@ public class CreateCheckListDto
     public string TireCondition { get; set; } = string.Empty;
     public string CoolingLevel { get; set; } = string.Empty;
     public string OilLevel { get; set; } = string.Empty;
+    public string SteeringFluidLevel { get; set; } = string.Empty;
     public string TirePressure { get; set; } = string.Empty;
     public bool SpareTire { get; set; }
     public bool Rims { get; set; }

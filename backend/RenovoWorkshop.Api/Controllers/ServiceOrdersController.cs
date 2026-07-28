@@ -229,6 +229,7 @@ public class ServiceOrdersController : ControllerBase
             Id = Guid.NewGuid(),
             Number = $"OS-{DateTime.UtcNow:yyyyMMddHHmmss}",
             ProblemReported = request.ProblemReported,
+            Services = request.Services,
             Notes = request.Notes,
             EstimatedDate = request.EstimatedDate,
             Status = request.Status,
