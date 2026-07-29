@@ -30,7 +30,7 @@ public class UpdateUserDto
     public string FullName { get; set; } = string.Empty;
     public string Role { get; set; } = string.Empty;
     public string Permissions { get; set; } = string.Empty;
-    public bool IsActive { get; set; }
+    public string? Password { get; set; }
 }
 
 public class LoginRequestDto

@@ -98,11 +98,30 @@ public class UsersController : ControllerBase
 
         _mapper.Map(updateUserDto, user);
 
+        if (!string.IsNullOrWhiteSpace(updateUserDto.Password))
+        {
+            user.PasswordHash = BCrypt.Net.BCrypt.HashPassword(updateUserDto.Password);
+        }
+
         if (string.IsNullOrWhiteSpace(user.Permissions))
         {
             user.Permissions = string.Join(",", UserPermissions.ForRole(user.Role));
         }
 
+        await _context.SaveChangesAsync();
+
+        var userDto = _mapper.Map<UserDto>(user);
+        return Ok(userDto);
+    }
+
+    [HttpPatch("{id:guid}/toggle-status")]
+    [Authorize(Policy = "CanManageUsers")]
+    public async Task<IActionResult> ToggleStatus(Guid id)
+    {
+        var user = await _context.Users.FindAsync(id);
+        if (user is null) return NotFound();
+
+        user.IsActive = !user.IsActive;
         await _context.SaveChangesAsync();
 
         var userDto = _mapper.Map<UserDto>(user);
