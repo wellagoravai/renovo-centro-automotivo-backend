@@ -13,6 +13,17 @@ using RenovoWorkshop.Infrastructure.Repositories;
 using RenovoWorkshop.Infrastructure.Services;
 using System.Text;
 
+// Carrega backend/.env para as variáveis de ambiente do processo antes do
+// builder ler a configuração. Em produção (Railway) não existe .env no disco
+// e o próprio provedor injeta as variáveis, então isso é um no-op seguro lá.
+try
+{
+    DotNetEnv.Env.TraversePath().Load();
+}
+catch (FileNotFoundException)
+{
+}
+
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddControllers();
