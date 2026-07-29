@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using RenovoWorkshop.Api.DTOs;
+using RenovoWorkshop.Application.Interfaces;
 using RenovoWorkshop.Domain.Entities;
 using RenovoWorkshop.Infrastructure.Persistence;
 
@@ -15,11 +16,13 @@ public class InventoryController : ControllerBase
 {
     private readonly RenovoWorkshopDbContext _context;
     private readonly IMapper _mapper;
+    private readonly INotificationService _notificationService;
 
-    public InventoryController(RenovoWorkshopDbContext context, IMapper mapper)
+    public InventoryController(RenovoWorkshopDbContext context, IMapper mapper, INotificationService notificationService)
     {
         _context = context;
         _mapper = mapper;
+        _notificationService = notificationService;
     }
 
     [HttpGet]
@@ -87,6 +90,9 @@ public class InventoryController : ControllerBase
         _mapper.Map(updateItemDto, item);
         await _context.SaveChangesAsync();
 
+        if (item.Quantity <= item.MinimumQuantity)
+            await _notificationService.NotifyInventoryAlertAsync(item.Id, item.Code, item.Description, item.Quantity, item.MinimumQuantity, HttpContext.RequestAborted);
+
         var itemDto = _mapper.Map<InventoryItemDto>(item);
         return Ok(itemDto);
     }
@@ -125,6 +131,9 @@ public class InventoryController : ControllerBase
 
         item.Quantity = request.NewQuantity;
         await _context.SaveChangesAsync();
+
+        if (item.Quantity <= item.MinimumQuantity)
+            await _notificationService.NotifyInventoryAlertAsync(item.Id, item.Code, item.Description, item.Quantity, item.MinimumQuantity, HttpContext.RequestAborted);
 
         var itemDto = _mapper.Map<InventoryItemDto>(item);
         return Ok(itemDto);

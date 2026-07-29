@@ -17,26 +17,32 @@ public class ServiceOrdersController : ControllerBase
     private readonly RenovoWorkshopDbContext _context;
     private readonly IMapper _mapper;
     private readonly IServiceOrderStatusService _statusService;
+    private readonly IPhotoStorageService _photoStorageService;
 
-    public ServiceOrdersController(RenovoWorkshopDbContext context, IMapper mapper, IServiceOrderStatusService statusService)
+    public ServiceOrdersController(RenovoWorkshopDbContext context, IMapper mapper, IServiceOrderStatusService statusService, IPhotoStorageService photoStorageService)
     {
         _context = context;
         _mapper = mapper;
         _statusService = statusService;
+        _photoStorageService = photoStorageService;
     }
 
     [HttpGet]
-    public async Task<IActionResult> GetAll([FromQuery] string? status = null, [FromQuery] string? search = null)
+    public async Task<IActionResult> GetAll([FromQuery] string? status = null, [FromQuery] string? search = null, [FromQuery] Guid? assignedUserId = null)
     {
         var query = _context.ServiceOrders
             .Include(o => o.Customer)
             .Include(o => o.Vehicle)
+            .Include(o => o.AssignedUser)
             .Include(o => o.History)
             .Include(o => o.Items).ThenInclude(i => i.InventoryItem)
             .AsQueryable();
 
         if (!string.IsNullOrWhiteSpace(status))
             query = query.Where(o => o.Status == status);
+
+        if (assignedUserId.HasValue)
+            query = query.Where(o => o.AssignedUserId == assignedUserId.Value);
 
         if (!string.IsNullOrWhiteSpace(search))
         {
@@ -55,6 +61,7 @@ public class ServiceOrdersController : ControllerBase
         var order = await _context.ServiceOrders
             .Include(o => o.Customer)
             .Include(o => o.Vehicle)
+            .Include(o => o.AssignedUser)
             .Include(o => o.History)
             .Include(o => o.Items).ThenInclude(i => i.InventoryItem)
             .FirstOrDefaultAsync(o => o.Id == id);
@@ -72,6 +79,7 @@ public class ServiceOrdersController : ControllerBase
         var order = await _context.ServiceOrders
             .Include(o => o.Customer)
             .Include(o => o.Vehicle)
+            .Include(o => o.AssignedUser)
             .Include(o => o.History)
             .Include(o => o.Items).ThenInclude(i => i.InventoryItem)
             .FirstOrDefaultAsync(o => o.Id == id);
@@ -80,6 +88,10 @@ public class ServiceOrdersController : ControllerBase
 
         _mapper.Map(updateDto, order);
         await _context.SaveChangesAsync();
+
+        // AssignedUserId pode ter mudado; a navegação já carregada acima não
+        // se atualiza sozinha só porque o FK escalar mudou.
+        await _context.Entry(order).Reference(o => o.AssignedUser).LoadAsync();
 
         var orderDto = _mapper.Map<ServiceOrderDto>(order);
         return Ok(orderDto);
@@ -112,6 +124,7 @@ public class ServiceOrdersController : ControllerBase
         var updatedOrder = await _context.ServiceOrders
             .Include(o => o.Customer)
             .Include(o => o.Vehicle)
+            .Include(o => o.AssignedUser)
             .Include(o => o.History)
             .Include(o => o.Items).ThenInclude(i => i.InventoryItem)
             .FirstAsync(o => o.Id == id);
@@ -234,6 +247,7 @@ public class ServiceOrdersController : ControllerBase
             EstimatedDate = request.EstimatedDate,
             Status = request.Status,
             ResponsibleUser = request.ResponsibleUser,
+            AssignedUserId = request.AssignedUserId,
             Photos = request.Photos,
             CustomerId = customer.Id,
             VehicleId = vehicle.Id,
@@ -285,4 +299,67 @@ public class ServiceOrdersController : ControllerBase
     }
 
     public record AttachChecklistRequest(Guid ChecklistId);
+
+    private const long MaxPhotoSizeBytes = 10 * 1024 * 1024;
+    private static readonly HashSet<string> AllowedPhotoContentTypes = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "image/jpeg", "image/png", "image/webp", "image/heic"
+    };
+
+    [HttpGet("{id:guid}/photos")]
+    public async Task<IActionResult> GetPhotos(Guid id)
+    {
+        var exists = await _context.ServiceOrders.AnyAsync(o => o.Id == id);
+        if (!exists) return NotFound();
+
+        var photos = await _context.ServiceOrderPhotos
+            .Where(p => p.ServiceOrderId == id)
+            .OrderByDescending(p => p.UploadedAt)
+            .ToListAsync();
+
+        return Ok(_mapper.Map<List<ServiceOrderPhotoDto>>(photos));
+    }
+
+    [HttpPost("{id:guid}/photos")]
+    [Authorize(Policy = "CanManageOrders")]
+    [RequestSizeLimit(MaxPhotoSizeBytes)]
+    public async Task<IActionResult> UploadPhoto(Guid id, IFormFile file)
+    {
+        var order = await _context.ServiceOrders.FindAsync(id);
+        if (order is null) return NotFound();
+
+        if (file is null || file.Length == 0)
+            return BadRequest(new { message = "Nenhum arquivo enviado." });
+
+        if (file.Length > MaxPhotoSizeBytes)
+            return BadRequest(new { message = "Arquivo excede o limite de 10MB." });
+
+        if (!AllowedPhotoContentTypes.Contains(file.ContentType))
+            return BadRequest(new { message = "Formato de imagem não suportado." });
+
+        string url;
+        try
+        {
+            await using var stream = file.OpenReadStream();
+            url = await _photoStorageService.UploadAsync(stream, file.FileName, HttpContext.RequestAborted);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return StatusCode(StatusCodes.Status503ServiceUnavailable, new { message = ex.Message });
+        }
+
+        var photo = new ServiceOrderPhoto
+        {
+            Id = Guid.NewGuid(),
+            ServiceOrderId = id,
+            Url = url,
+            UploadedAt = DateTime.UtcNow,
+            UploadedBy = User.Identity?.Name ?? "Desconhecido"
+        };
+
+        _context.ServiceOrderPhotos.Add(photo);
+        await _context.SaveChangesAsync();
+
+        return CreatedAtAction(nameof(GetPhotos), new { id }, _mapper.Map<ServiceOrderPhotoDto>(photo));
+    }
 }

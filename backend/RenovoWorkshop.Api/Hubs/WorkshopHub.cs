@@ -1,3 +1,4 @@
+using System.Security.Claims;
 using Microsoft.AspNetCore.SignalR;
 using Microsoft.AspNetCore.Authorization;
 
@@ -13,10 +14,22 @@ public class WorkshopHub : Hub
         _logger = logger;
     }
 
+    public static string UserGroup(Guid userId) => $"user-{userId}";
+    public static string RoleGroup(string role) => $"role-{role}";
+
     public override async Task OnConnectedAsync()
     {
         _logger.LogInformation($"Client connected: {Context.ConnectionId}");
         await Groups.AddToGroupAsync(Context.ConnectionId, "WorkshopUsers");
+
+        var userId = Context.User?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        if (userId is not null)
+            await Groups.AddToGroupAsync(Context.ConnectionId, UserGroup(Guid.Parse(userId)));
+
+        var role = Context.User?.FindFirst(ClaimTypes.Role)?.Value;
+        if (role is not null)
+            await Groups.AddToGroupAsync(Context.ConnectionId, RoleGroup(role));
+
         await base.OnConnectedAsync();
     }
 

@@ -147,4 +147,22 @@ public class UsersController : ControllerBase
         var roles = UserRoles.All.Select(r => new { Value = r, Label = r }).ToList();
         return Ok(roles);
     }
+
+    // Listagem enxuta (sem email/permissões) para preencher combos de atribuição
+    // (ex.: "Atribuir a" numa OS) sem exigir a policy CanManageUsers.
+    [HttpGet("assignable")]
+    public async Task<IActionResult> GetAssignable([FromQuery] string? role = null)
+    {
+        var query = _context.Users.Where(u => u.IsActive).AsQueryable();
+
+        if (!string.IsNullOrWhiteSpace(role))
+            query = query.Where(u => u.Role == role);
+
+        var users = await query
+            .OrderBy(u => u.FullName)
+            .Select(u => new { u.Id, u.FullName, u.Role })
+            .ToListAsync();
+
+        return Ok(users);
+    }
 }

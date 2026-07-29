@@ -26,6 +26,7 @@ public class AutoMapperProfile : Profile
 
         // ServiceOrder mappings
         CreateMap<ServiceOrder, ServiceOrderDto>()
+            .ForMember(dest => dest.AssignedUserName, opt => opt.MapFrom(src => src.AssignedUser != null ? src.AssignedUser.FullName : null))
             .ForMember(dest => dest.CustomerName, opt => opt.MapFrom(src => src.Customer.Name))
             .ForMember(dest => dest.VehiclePlate, opt => opt.MapFrom(src => src.Vehicle.Plate))
             .ForMember(dest => dest.VehicleBrand, opt => opt.MapFrom(src => src.Vehicle.Brand))
@@ -37,6 +38,7 @@ public class AutoMapperProfile : Profile
             .ForMember(dest => dest.Items, opt => opt.MapFrom(src => src.Items));
 
         CreateMap<ServiceOrderHistory, ServiceOrderHistoryDto>();
+        CreateMap<ServiceOrderPhoto, ServiceOrderPhotoDto>();
         CreateMap<CreateServiceOrderDto, ServiceOrder>();
         CreateMap<CreateServiceOrderWithCustomerVehicleDto, ServiceOrder>()
             .ForMember(dest => dest.CustomerId, opt => opt.Ignore())

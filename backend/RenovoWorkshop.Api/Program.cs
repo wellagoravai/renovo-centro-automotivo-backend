@@ -56,12 +56,19 @@ builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowLocalhost", policy =>
     {
-        policy.WithOrigins("http://localhost:3000", "http://localhost:3001", "http://localhost:8080", "http://127.0.0.1:3000", "http://192.168.*.*", "http://10.0.*.*")
+        // WithOrigins faz match exato — "http://192.168.*.*" nunca funcionou de fato.
+        // SetIsOriginAllowed com checagem de prefixo permite testar o app a partir de
+        // um celular na mesma rede Wi-Fi durante o desenvolvimento.
+        policy.SetIsOriginAllowed(origin =>
+                  origin is "http://localhost:3000" or "http://localhost:3001" or "http://localhost:5173"
+                            or "http://localhost:8080" or "http://127.0.0.1:3000"
+                  || origin.StartsWith("http://192.168.", StringComparison.OrdinalIgnoreCase)
+                  || origin.StartsWith("http://10.0.", StringComparison.OrdinalIgnoreCase))
               .AllowAnyHeader()
               .AllowAnyMethod()
               .AllowCredentials();
     });
-    
+
     options.AddPolicy("AllowProduction", policy =>
     {
         var allowedOrigins = builder.Configuration["Cors:AllowedOrigins"]?.Split(',') ?? Array.Empty<string>();
@@ -75,6 +82,8 @@ builder.Services.AddCors(options =>
 builder.Services.AddScoped(typeof(IRepository<>), typeof(Repository<>));
 builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<IWhatsAppService, WhatsAppService>();
+builder.Services.AddScoped<INotificationService, SignalRNotificationService>();
+builder.Services.AddScoped<IPhotoStorageService, CloudinaryPhotoStorageService>();
 builder.Services.AddScoped<IServiceOrderStatusService, ServiceOrderStatusService>();
 builder.Services.AddScoped<IWhatsAppReplyProcessor, WhatsAppReplyProcessor>();
 builder.Services.AddHttpClient<EvolutionApiClient>();

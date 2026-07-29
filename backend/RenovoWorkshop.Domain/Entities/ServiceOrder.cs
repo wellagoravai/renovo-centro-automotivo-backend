@@ -18,6 +18,8 @@ public class ServiceOrder
     public DateTime? FinalDate { get; set; }
     public string Status { get; set; } = "Recebido";
     public string ResponsibleUser { get; set; } = string.Empty;
+    public Guid? AssignedUserId { get; set; }
+    public ApplicationUser? AssignedUser { get; set; }
     public bool HasChecklist { get; set; }
     public Guid? ChecklistId { get; set; }
     public string? ApprovalLink { get; set; }

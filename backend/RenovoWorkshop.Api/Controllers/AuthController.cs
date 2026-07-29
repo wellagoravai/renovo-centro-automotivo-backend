@@ -28,7 +28,7 @@ public class AuthController : ControllerBase
         if (user is null || !_authService.VerifyPassword(request.Password, user.PasswordHash))
             return Unauthorized(new { message = "Credenciais inválidas." });
 
-        var token = _authService.GenerateJwtToken(user.UserName, user.Role);
+        var token = _authService.GenerateJwtToken(user.Id, user.UserName, user.Role);
         var permissions = UserPermissions.ForRole(user.Role);
         return Ok(new { 
             token, 
@@ -72,7 +72,7 @@ public class AuthController : ControllerBase
     public async Task<IActionResult> ChangePassword([FromBody] ChangePasswordRequest request)
     {
         // Get user from JWT token
-        var userIdClaim = User.FindFirst("sub") ?? User.FindFirst("id");
+        var userIdClaim = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier);
         if (userIdClaim is null || !Guid.TryParse(userIdClaim.Value, out var userId))
             return Unauthorized(new { message = "Usuário não autenticado." });
 

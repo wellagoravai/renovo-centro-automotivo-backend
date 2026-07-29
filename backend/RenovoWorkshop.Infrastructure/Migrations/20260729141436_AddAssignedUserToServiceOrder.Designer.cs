@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using RenovoWorkshop.Infrastructure.Persistence;
 
@@ -10,9 +11,11 @@ using RenovoWorkshop.Infrastructure.Persistence;
 namespace RenovoWorkshop.Infrastructure.Migrations
 {
     [DbContext(typeof(RenovoWorkshopDbContext))]
-    partial class RenovoWorkshopDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260729141436_AddAssignedUserToServiceOrder")]
+    partial class AddAssignedUserToServiceOrder
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder.HasAnnotation("ProductVersion", "8.0.8");
@@ -382,35 +385,6 @@ namespace RenovoWorkshop.Infrastructure.Migrations
                     b.HasIndex("ServiceOrderId");
 
                     b.ToTable("ServiceOrderItems");
-                });
-
-            modelBuilder.Entity("RenovoWorkshop.Domain.Entities.ServiceOrderPhoto", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("TEXT");
-
-                    b.Property<Guid>("ServiceOrderId")
-                        .HasColumnType("TEXT");
-
-                    b.Property<DateTime>("UploadedAt")
-                        .HasColumnType("TEXT");
-
-                    b.Property<string>("UploadedBy")
-                        .IsRequired()
-                        .HasMaxLength(200)
-                        .HasColumnType("TEXT");
-
-                    b.Property<string>("Url")
-                        .IsRequired()
-                        .HasMaxLength(1000)
-                        .HasColumnType("TEXT");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("ServiceOrderId");
-
-                    b.ToTable("ServiceOrderPhotos");
                 });
 
             modelBuilder.Entity("RenovoWorkshop.Domain.Entities.Supplier", b =>
@@ -800,17 +774,6 @@ namespace RenovoWorkshop.Infrastructure.Migrations
                         .IsRequired();
 
                     b.Navigation("InventoryItem");
-
-                    b.Navigation("ServiceOrder");
-                });
-
-            modelBuilder.Entity("RenovoWorkshop.Domain.Entities.ServiceOrderPhoto", b =>
-                {
-                    b.HasOne("RenovoWorkshop.Domain.Entities.ServiceOrder", "ServiceOrder")
-                        .WithMany()
-                        .HasForeignKey("ServiceOrderId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
 
                     b.Navigation("ServiceOrder");
                 });

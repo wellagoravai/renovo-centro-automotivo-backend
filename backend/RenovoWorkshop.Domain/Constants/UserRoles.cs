@@ -75,7 +75,8 @@ public static class UserPermissions
             DashboardView,
             VehiclesRead,
             OrdersRead,
-            OrdersWrite
+            OrdersWrite,
+            InventoryRead
         },
         UserRoles.Warehouse => new[]
         {

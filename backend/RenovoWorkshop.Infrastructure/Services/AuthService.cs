@@ -18,7 +18,7 @@ public class AuthService : IAuthService
         _configuration = configuration;
     }
 
-    public string GenerateJwtToken(string username, string role)
+    public string GenerateJwtToken(Guid userId, string username, string role)
     {
         var key = Encoding.UTF8.GetBytes(_configuration["Jwt:Key"] ?? "RenovoWorkshop-Development-Key-123456");
         var tokenHandler = new JwtSecurityTokenHandler();
@@ -27,6 +27,7 @@ public class AuthService : IAuthService
         {
             Subject = new ClaimsIdentity(new[]
             {
+                new Claim(ClaimTypes.NameIdentifier, userId.ToString()),
                 new Claim(ClaimTypes.Name, username),
                 new Claim(ClaimTypes.Role, role),
                 new Claim("permissions", string.Join(",", permissions))

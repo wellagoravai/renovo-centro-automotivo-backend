@@ -9,11 +9,13 @@ public class ServiceOrderStatusService : IServiceOrderStatusService
 {
     private readonly RenovoWorkshopDbContext _context;
     private readonly IWhatsAppService _whatsAppService;
+    private readonly INotificationService _notificationService;
 
-    public ServiceOrderStatusService(RenovoWorkshopDbContext context, IWhatsAppService whatsAppService)
+    public ServiceOrderStatusService(RenovoWorkshopDbContext context, IWhatsAppService whatsAppService, INotificationService notificationService)
     {
         _context = context;
         _whatsAppService = whatsAppService;
+        _notificationService = notificationService;
     }
 
     public async Task<ServiceOrderStatusChangeResult> ChangeStatusAsync(Guid orderId, string newStatus, string? notes, string changedBy, CancellationToken cancellationToken = default)
@@ -79,6 +81,8 @@ public class ServiceOrderStatusService : IServiceOrderStatusService
         {
             await _whatsAppService.SendStatusMessageAsync(order, customer, previousStatus, newStatus, notes, cancellationToken);
         }
+
+        await _notificationService.NotifyStatusUpdateAsync(order.Id, newStatus, changedBy, order.AssignedUserId, cancellationToken);
 
         return new ServiceOrderStatusChangeResult(true, "Status atualizado com sucesso.", order);
     }

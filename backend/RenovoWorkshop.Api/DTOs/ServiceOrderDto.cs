@@ -18,6 +18,8 @@ public class ServiceOrderDto
     public DateTime? FinalDate { get; set; }
     public string Status { get; set; } = string.Empty;
     public string ResponsibleUser { get; set; } = string.Empty;
+    public Guid? AssignedUserId { get; set; }
+    public string? AssignedUserName { get; set; }
     public bool HasChecklist { get; set; }
     public Guid? ChecklistId { get; set; }
     public string? ApprovalLink { get; set; }
@@ -50,6 +52,7 @@ public class CreateServiceOrderDto
     public DateTime? EstimatedDate { get; set; }
     public string Status { get; set; } = "Recebido";
     public string ResponsibleUser { get; set; } = string.Empty;
+    public Guid? AssignedUserId { get; set; }
     public bool HasChecklist { get; set; }
     public Guid? ChecklistId { get; set; }
     public Guid CustomerId { get; set; }
@@ -64,6 +67,7 @@ public class CreateServiceOrderWithCustomerVehicleDto
     public DateTime? EstimatedDate { get; set; }
     public string Status { get; set; } = "Recebido";
     public string ResponsibleUser { get; set; } = string.Empty;
+    public Guid? AssignedUserId { get; set; }
     public string Photos { get; set; } = string.Empty;
 
     // Customer data
@@ -84,6 +88,7 @@ public class UpdateServiceOrderDto
     public decimal Value { get; set; }
     public string Notes { get; set; } = string.Empty;
     public string Photos { get; set; } = string.Empty;
+    public Guid? AssignedUserId { get; set; }
 }
 
 public class ServiceOrderItemDto
@@ -138,4 +143,12 @@ public class ServiceOrderHistoryDto
     public DateTime ChangedAt { get; set; }
     public string ChangedBy { get; set; } = string.Empty;
     public string Notes { get; set; } = string.Empty;
+}
+
+public class ServiceOrderPhotoDto
+{
+    public Guid Id { get; set; }
+    public string Url { get; set; } = string.Empty;
+    public DateTime UploadedAt { get; set; }
+    public string UploadedBy { get; set; } = string.Empty;
 }
