@@ -42,11 +42,21 @@ public class AuthController : ControllerBase
         });
     }
 
+    // Criação de usuários é uma operação administrativa: exige token válido e a
+    // policy CanManageUsers, assim como RenovoWorkshop.Api.Controllers.UsersController.Create.
+    // Sem isso, qualquer pessoa sem login poderia se cadastrar com Role="Administrador".
+    [Authorize(Policy = "CanManageUsers")]
     [HttpPost("register")]
     public async Task<IActionResult> Register([FromBody] RegisterRequest request)
     {
-        if (_context.Users.Any(u => u.UserName == request.Username))
+        if (!UserRoles.All.Contains(request.Role))
+            return BadRequest(new { message = "Papel (role) inválido." });
+
+        if (await _context.Users.AnyAsync(u => u.UserName == request.Username))
             return Conflict(new { message = "Usuário já existe." });
+
+        if (await _context.Users.AnyAsync(u => u.Email == request.Email))
+            return Conflict(new { message = "Email já cadastrado." });
 
         var user = new ApplicationUser
         {
@@ -55,12 +65,26 @@ public class AuthController : ControllerBase
             Email = request.Email,
             FullName = request.FullName,
             Role = request.Role,
-            PasswordHash = _authService.HashPassword(request.Password)
+            Permissions = string.Join(",", UserPermissions.ForRole(request.Role)),
+            PasswordHash = _authService.HashPassword(request.Password),
+            CreatedAt = DateTime.UtcNow
         };
 
         _context.Users.Add(user);
         await _context.SaveChangesAsync();
-        return CreatedAtAction(nameof(Login), new { username = user.UserName }, user);
+
+        var userDto = new
+        {
+            user.Id,
+            user.UserName,
+            user.Email,
+            user.FullName,
+            user.Role,
+            user.Permissions,
+            user.IsActive,
+            user.CreatedAt
+        };
+        return CreatedAtAction(nameof(Login), new { username = user.UserName }, userDto);
     }
 
     public record LoginRequest(string Username, string Password);

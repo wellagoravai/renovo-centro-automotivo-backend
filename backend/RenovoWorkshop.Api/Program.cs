@@ -16,12 +16,17 @@ using System.Text;
 // Carrega backend/.env para as variáveis de ambiente do processo antes do
 // builder ler a configuração. Em produção (Railway) não existe .env no disco
 // e o próprio provedor injeta as variáveis, então isso é um no-op seguro lá.
-try
+// RENOVO_SKIP_DOTENV é usado pelos testes de integração (CustomWebApplicationFactory)
+// para impedir que o .env real do desenvolvedor vaze para o processo de teste.
+if (Environment.GetEnvironmentVariable("RENOVO_SKIP_DOTENV") != "1")
 {
-    DotNetEnv.Env.TraversePath().Load();
-}
-catch (FileNotFoundException)
-{
+    try
+    {
+        DotNetEnv.Env.TraversePath().Load();
+    }
+    catch (FileNotFoundException)
+    {
+    }
 }
 
 var builder = WebApplication.CreateBuilder(args);
@@ -99,9 +104,15 @@ builder.Services.AddScoped<IServiceOrderStatusService, ServiceOrderStatusService
 builder.Services.AddScoped<IWhatsAppReplyProcessor, WhatsAppReplyProcessor>();
 builder.Services.AddHttpClient<EvolutionApiClient>();
 
+if (string.IsNullOrWhiteSpace(builder.Configuration["Jwt:Key"]))
+    throw new InvalidOperationException("Configuração 'Jwt:Key' não definida. Configure Jwt__Key nas variáveis de ambiente antes de iniciar a aplicação.");
+
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(options =>
     {
+        // Lido de dentro do delegate (não numa variável capturada antes dele) para
+        // refletir a configuração final, inclusive quando fontes de configuração
+        // adicionais são plugadas depois deste ponto (ex.: WebApplicationFactory nos testes).
         options.TokenValidationParameters = new TokenValidationParameters
         {
             ValidateIssuer = true,
@@ -110,7 +121,7 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
             ValidateIssuerSigningKey = true,
             ValidIssuer = builder.Configuration["Jwt:Issuer"] ?? "RenovoWorkshop.Api",
             ValidAudience = builder.Configuration["Jwt:Audience"] ?? "RenovoWorkshop.Client",
-            IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(builder.Configuration["Jwt:Key"] ?? "RenovoWorkshop-Development-Key-123456"))
+            IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(builder.Configuration["Jwt:Key"]!))
         };
     });
 
@@ -130,7 +141,11 @@ var app = builder.Build();
 using (var scope = app.Services.CreateScope())
 {
     var context = scope.ServiceProvider.GetRequiredService<RenovoWorkshopDbContext>();
-    context.Database.Migrate();
+    // O provedor InMemory (usado nos testes de integração) não suporta Migrate().
+    if (context.Database.IsRelational())
+        context.Database.Migrate();
+    else
+        context.Database.EnsureCreated();
 
     // Seed test data if database is empty
     if (!context.Users.Any())
@@ -440,3 +455,7 @@ static void SeedWorkshopSettings(RenovoWorkshopDbContext context)
     });
     context.SaveChanges();
 }
+
+// Torna a classe Program (gerada pelas top-level statements) acessível para
+// WebApplicationFactory<Program> nos testes de integração.
+public partial class Program { }

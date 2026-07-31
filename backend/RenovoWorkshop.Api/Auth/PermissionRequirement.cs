@@ -16,7 +16,15 @@ public class PermissionAuthorizationHandler : AuthorizationHandler<PermissionReq
 {
     protected override Task HandleRequirementAsync(AuthorizationHandlerContext context, PermissionRequirement requirement)
     {
-        if (context.User.HasClaim(c => c.Type == "permissions" && c.Value.Contains(requirement.Permission, StringComparison.OrdinalIgnoreCase)))
+        // Comparação por item exato (após split por vírgula), não por substring —
+        // Contains() aceitaria uma permissão futura tipo "orders.write.extra" como
+        // se satisfizesse a exigência de "orders.write".
+        var hasPermission = context.User.Claims
+            .Where(c => c.Type == "permissions")
+            .SelectMany(c => c.Value.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+            .Any(p => string.Equals(p, requirement.Permission, StringComparison.OrdinalIgnoreCase));
+
+        if (hasPermission)
         {
             context.Succeed(requirement);
         }

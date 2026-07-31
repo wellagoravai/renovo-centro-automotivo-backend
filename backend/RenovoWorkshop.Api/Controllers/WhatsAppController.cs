@@ -46,7 +46,7 @@ public class WhatsAppController : ControllerBase
     {
         var expectedToken = _configuration["WhatsApp:WebhookToken"];
         var providedToken = headerToken ?? token;
-        if (string.IsNullOrEmpty(expectedToken) || !string.Equals(providedToken, expectedToken, StringComparison.Ordinal))
+        if (string.IsNullOrEmpty(expectedToken) || !FixedTimeEquals(providedToken, expectedToken))
         {
             return Unauthorized();
         }
@@ -91,5 +91,15 @@ public class WhatsAppController : ControllerBase
 
         await _replyProcessor.ProcessInboundMessageAsync(remoteJid, text, messageId, HttpContext.RequestAborted);
         return Ok(new { received = true });
+    }
+
+    // Comparação em tempo constante para evitar ataque de temporização na validação do token do webhook.
+    private static bool FixedTimeEquals(string? provided, string expected)
+    {
+        if (provided is null) return false;
+        var providedBytes = System.Text.Encoding.UTF8.GetBytes(provided);
+        var expectedBytes = System.Text.Encoding.UTF8.GetBytes(expected);
+        if (providedBytes.Length != expectedBytes.Length) return false;
+        return System.Security.Cryptography.CryptographicOperations.FixedTimeEquals(providedBytes, expectedBytes);
     }
 }

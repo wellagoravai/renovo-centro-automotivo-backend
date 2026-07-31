@@ -42,7 +42,7 @@ public class ServiceOrderStatusServiceTests
         using var context = CreateContext();
         var order = SeedOrder(context, "Aguardando aprovação");
         var whatsApp = new FakeWhatsAppService();
-        var service = new ServiceOrderStatusService(context, whatsApp);
+        var service = new ServiceOrderStatusService(context, whatsApp, new FakeNotificationService());
 
         var result = await service.ChangeStatusAsync(order.Id, "Aprovado", null, "Equipe");
 
@@ -58,7 +58,7 @@ public class ServiceOrderStatusServiceTests
         using var context = CreateContext();
         var order = SeedOrder(context, "Aprovado");
         var whatsApp = new FakeWhatsAppService();
-        var service = new ServiceOrderStatusService(context, whatsApp);
+        var service = new ServiceOrderStatusService(context, whatsApp, new FakeNotificationService());
 
         var result = await service.ChangeStatusAsync(order.Id, "Aprovado", null, "Equipe");
 
@@ -72,7 +72,7 @@ public class ServiceOrderStatusServiceTests
     {
         using var context = CreateContext();
         var whatsApp = new FakeWhatsAppService();
-        var service = new ServiceOrderStatusService(context, whatsApp);
+        var service = new ServiceOrderStatusService(context, whatsApp, new FakeNotificationService());
 
         var result = await service.ChangeStatusAsync(Guid.NewGuid(), "Aprovado", null, "Equipe");
 
@@ -91,7 +91,7 @@ public class ServiceOrderStatusServiceTests
         context.SaveChanges();
 
         var whatsApp = new FakeWhatsAppService();
-        var service = new ServiceOrderStatusService(context, whatsApp);
+        var service = new ServiceOrderStatusService(context, whatsApp, new FakeNotificationService());
 
         await service.ChangeStatusAsync(order.Id, "Entregue", null, "Equipe");
         Assert.Equal(7, (await context.InventoryItems.FindAsync(inventoryItem.Id))!.Quantity);

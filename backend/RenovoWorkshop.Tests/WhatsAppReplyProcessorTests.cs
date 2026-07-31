@@ -37,7 +37,7 @@ public class WhatsAppReplyProcessorTests
     private static WhatsAppReplyProcessor CreateProcessor(RenovoWorkshopDbContext context, out FakeWhatsAppService whatsApp)
     {
         whatsApp = new FakeWhatsAppService();
-        var statusService = new ServiceOrderStatusService(context, whatsApp);
+        var statusService = new ServiceOrderStatusService(context, whatsApp, new FakeNotificationService());
         return new WhatsAppReplyProcessor(context, statusService, whatsApp);
     }
 

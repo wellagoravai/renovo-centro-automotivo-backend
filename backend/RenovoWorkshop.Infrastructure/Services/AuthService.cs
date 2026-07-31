@@ -20,7 +20,10 @@ public class AuthService : IAuthService
 
     public string GenerateJwtToken(Guid userId, string username, string role)
     {
-        var key = Encoding.UTF8.GetBytes(_configuration["Jwt:Key"] ?? "RenovoWorkshop-Development-Key-123456");
+        var jwtKey = _configuration["Jwt:Key"];
+        if (string.IsNullOrWhiteSpace(jwtKey))
+            throw new InvalidOperationException("Configuração 'Jwt:Key' não definida. Configure Jwt__Key nas variáveis de ambiente.");
+        var key = Encoding.UTF8.GetBytes(jwtKey);
         var tokenHandler = new JwtSecurityTokenHandler();
         var permissions = UserPermissions.ForRole(role);
         var tokenDescriptor = new SecurityTokenDescriptor
