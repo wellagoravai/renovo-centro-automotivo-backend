@@ -141,8 +141,14 @@ var app = builder.Build();
 using (var scope = app.Services.CreateScope())
 {
     var context = scope.ServiceProvider.GetRequiredService<RenovoWorkshopDbContext>();
-    // O provedor InMemory (usado nos testes de integração) não suporta Migrate().
-    if (context.Database.IsRelational())
+    // As migrations existentes foram geradas para o provedor SQLite (usam tipos
+    // como "TEXT" cravados) e falham no Postgres ao alterar colunas com FK ativa.
+    // Para Npgsql criamos o schema direto do model atual em vez de reaplicar
+    // esse histórico. O provedor InMemory (testes de integração) também não
+    // suporta Migrate().
+    if (context.Database.ProviderName?.Contains("Npgsql", StringComparison.OrdinalIgnoreCase) == true)
+        context.Database.EnsureCreated();
+    else if (context.Database.IsRelational())
         context.Database.Migrate();
     else
         context.Database.EnsureCreated();
