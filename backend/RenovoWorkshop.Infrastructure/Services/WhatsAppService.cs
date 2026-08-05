@@ -1,5 +1,6 @@
 using Microsoft.Extensions.Configuration;
 using RenovoWorkshop.Application.Interfaces;
+using RenovoWorkshop.Domain.Constants;
 using RenovoWorkshop.Domain.Entities;
 using RenovoWorkshop.Infrastructure.Persistence;
 
@@ -21,6 +22,7 @@ public class WhatsAppService : IWhatsAppService
     public string BuildStatusMessage(ServiceOrder order, Customer customer, string previousStatus, string newStatus, string? notes = null)
     {
         var details = string.IsNullOrWhiteSpace(notes) ? null : notes.Trim();
+        var vehicleLabel = BuildVehicleLabel(order.Vehicle);
 
         return newStatus switch
         {
@@ -31,9 +33,44 @@ public class WhatsAppService : IWhatsAppService
             "Pronto para retirada" =>
                 $"Olá {customer.Name}! Seu veículo já está pronto para retirada (ordem {order.Number})." +
                 (details is null ? string.Empty : $" {details}"),
+
+            // Status exclusivos do fluxo de Guincho — mantêm o cliente informado em
+            // cada etapa do atendimento, do chamado até a entrega no destino.
+            "Chamado recebido" =>
+                $"Olá {customer.Name}! Recebemos seu chamado de guincho (ordem {order.Number}){vehicleLabel}. Em breve nossa equipe estará a caminho." +
+                (details is null ? string.Empty : $" {details}"),
+            "A caminho do local" =>
+                $"Olá {customer.Name}! Nosso guincho já está a caminho do local para buscar seu veículo{vehicleLabel} (ordem {order.Number})." +
+                (details is null ? string.Empty : $" {details}"),
+            "Veículo carregado" =>
+                $"Olá {customer.Name}! Seu veículo{vehicleLabel} foi carregado no guincho (ordem {order.Number}) e seguirá para o destino combinado." +
+                (details is null ? string.Empty : $" {details}"),
+            "Em transporte" =>
+                $"Olá {customer.Name}! Seu veículo{vehicleLabel} está em transporte pelo guincho (ordem {order.Number})." +
+                (details is null ? string.Empty : $" {details}"),
+
+            // "Entregue" e "Cancelado" existem nos dois fluxos com significados diferentes
+            // (retirada pelo cliente vs. entrega no destino do guincho) — diferencia pelo tipo da OS.
+            "Entregue" when order.ServiceType == ServiceOrderTypes.Guincho =>
+                $"Olá {customer.Name}! Seu veículo{vehicleLabel} foi entregue com sucesso no destino combinado (ordem {order.Number})." +
+                (details is null ? string.Empty : $" {details}"),
+            "Cancelado" when order.ServiceType == ServiceOrderTypes.Guincho =>
+                $"Olá {customer.Name}! O chamado de guincho (ordem {order.Number}){vehicleLabel} foi cancelado." +
+                (details is null ? string.Empty : $" {details}"),
+
             _ =>
                 $"Olá {customer.Name}! A ordem {order.Number} mudou de \"{previousStatus}\" para \"{newStatus}\". Detalhes: {details ?? "Acompanhe o andamento da sua ordem."}"
         };
+    }
+
+    private static string BuildVehicleLabel(Vehicle? vehicle)
+    {
+        if (vehicle is null || string.IsNullOrWhiteSpace(vehicle.Plate))
+            return string.Empty;
+
+        return string.IsNullOrWhiteSpace(vehicle.Model)
+            ? $" (placa {vehicle.Plate})"
+            : $" ({vehicle.Model}, placa {vehicle.Plate})";
     }
 
     // Resumo do orçamento: diagnóstico, serviços, peças lançadas, mão de obra e total —
