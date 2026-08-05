@@ -1,9 +1,14 @@
+using RenovoWorkshop.Domain.Constants;
+
 namespace RenovoWorkshop.Domain.Entities;
 
 public class ServiceOrder
 {
     public Guid Id { get; set; }
     public string Number { get; set; } = string.Empty;
+    // "Oficina" (padrão) ou "Guincho" — ver ServiceOrderTypes. Discriminador que
+    // unifica os dois tipos de atendimento numa OS só, em vez de estruturas separadas.
+    public string ServiceType { get; set; } = ServiceOrderTypes.Oficina;
     public string ProblemReported { get; set; } = string.Empty;
     public string Diagnosis { get; set; } = string.Empty;
     public string Services { get; set; } = string.Empty;
@@ -11,6 +16,9 @@ public class ServiceOrder
     public string Oils { get; set; } = string.Empty;
     public string Filters { get; set; } = string.Empty;
     public decimal EstimatedTime { get; set; }
+    public decimal LaborValue { get; set; }
+    // Recalculado sempre que LaborValue ou Items mudam (ver ServiceOrdersController.RecalculateValue) —
+    // mantido como coluna persistida para não quebrar relatórios/dashboard que leem Value diretamente.
     public decimal Value { get; set; }
     public string Notes { get; set; } = string.Empty;
     public DateTime EntryDate { get; set; } = DateTime.UtcNow;

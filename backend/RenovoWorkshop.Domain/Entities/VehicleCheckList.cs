@@ -29,9 +29,21 @@ public class VehicleCheckList
     public bool Triangle { get; set; }
     public bool SpareKey { get; set; }
     public bool Documents { get; set; }
+    // Campos adicionais para cobrir o checklist de recebimento do guincho
+    // (mesma entidade serve os dois fluxos — ver ServiceOrder.ServiceType).
+    public bool FogLights { get; set; }
+    public bool Hubcaps { get; set; }
+    public bool Antenna { get; set; }
+    public bool WheelWrench { get; set; }
+    public bool FloorMat { get; set; }
+    public bool Radio { get; set; }
+    public bool IgnitionKeys { get; set; }
     public string GeneralState { get; set; } = string.Empty;
     public string Observations { get; set; } = string.Empty;
     public string VisualDamage { get; set; } = string.Empty;
+    // Chaves dos pontos marcados no diagrama do veículo, separadas por vírgula
+    // (mesmo padrão de lista-em-string de ServiceOrder.Services).
+    public string DamagePoints { get; set; } = string.Empty;
     public string Photos { get; set; } = string.Empty;
     public DateTime CheckedAt { get; set; } = DateTime.UtcNow;
     public string ResponsibleUser { get; set; } = string.Empty;

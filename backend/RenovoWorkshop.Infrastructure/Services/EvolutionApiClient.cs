@@ -36,6 +36,25 @@ public class EvolutionApiClient
         return new EvolutionSendResult(true, TryExtractMessageId(responseBody), responseBody, null);
     }
 
+    public async Task<EvolutionSendResult> SendMediaAsync(string baseUrl, string apiKey, string instance, string phoneDigits, string mediaUrl, string? caption, CancellationToken cancellationToken = default)
+    {
+        var endpoint = $"{baseUrl.TrimEnd('/')}/message/sendMedia/{instance}";
+
+        using var request = new HttpRequestMessage(HttpMethod.Post, endpoint);
+        request.Headers.TryAddWithoutValidation("apikey", apiKey);
+        request.Content = JsonContent.Create(new { number = phoneDigits, mediatype = "image", media = mediaUrl, caption = caption ?? string.Empty });
+
+        using var response = await _httpClient.SendAsync(request, cancellationToken);
+        var responseBody = await response.Content.ReadAsStringAsync(cancellationToken);
+
+        if (!response.IsSuccessStatusCode)
+        {
+            return new EvolutionSendResult(false, null, responseBody, $"Status: {(int)response.StatusCode}; {responseBody}");
+        }
+
+        return new EvolutionSendResult(true, TryExtractMessageId(responseBody), responseBody, null);
+    }
+
     private static string? TryExtractMessageId(string responseBody)
     {
         try

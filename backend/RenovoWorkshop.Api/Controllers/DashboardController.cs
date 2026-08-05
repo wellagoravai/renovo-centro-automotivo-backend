@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using RenovoWorkshop.Domain.Constants;
 using RenovoWorkshop.Infrastructure.Persistence;
 
 namespace RenovoWorkshop.Api.Controllers;
@@ -20,7 +21,9 @@ public class DashboardController : ControllerBase
     [HttpGet]
     public async Task<IActionResult> GetDashboard()
     {
-        var orders = await _context.ServiceOrders.ToListAsync();
+        // Guincho tem status e KPIs próprios (ver GetTowDashboard) — este dashboard
+        // fica só com o que sempre foi: os atendimentos de oficina.
+        var orders = await _context.ServiceOrders.Where(o => o.ServiceType == ServiceOrderTypes.Oficina).ToListAsync();
         var inventory = await _context.InventoryItems.ToListAsync();
         var today = DateTime.UtcNow.Date;
 
@@ -76,13 +79,35 @@ public class DashboardController : ControllerBase
     [HttpGet("realtime")]
     public async Task<IActionResult> GetRealtimeSnapshot()
     {
-        var orders = await _context.ServiceOrders.ToListAsync();
+        var orders = await _context.ServiceOrders.Where(o => o.ServiceType == ServiceOrderTypes.Oficina).ToListAsync();
         return Ok(new
         {
             updatedAt = DateTime.UtcNow,
             openOrders = orders.Count(o => o.Status != "Entregue" && o.Status != "Cancelado"),
             finishedOrders = orders.Count(o => o.Status == "Entregue"),
             pendingBudgets = orders.Count(o => o.Status == "Aguardando aprovação")
+        });
+    }
+
+    // Dashboard separado pra acompanhar veículos em transporte pelo guincho — os
+    // status de guincho (ver ServiceOrderStatuses.Guincho) não têm nada a ver com
+    // os buckets de oficina do GetDashboard() acima.
+    [HttpGet("tow")]
+    public async Task<IActionResult> GetTowDashboard()
+    {
+        var orders = await _context.ServiceOrders.Where(o => o.ServiceType == ServiceOrderTypes.Guincho).ToListAsync();
+        var today = DateTime.UtcNow.Date;
+
+        return Ok(new
+        {
+            callsReceived = orders.Count(o => o.Status == "Chamado recebido"),
+            enRouteToPickup = orders.Count(o => o.Status == "A caminho do local"),
+            vehicleLoaded = orders.Count(o => o.Status == "Veículo carregado"),
+            inTransport = orders.Count(o => o.Status == "Em transporte"),
+            deliveredToday = orders.Count(o => o.Status == "Entregue" && o.FinalDate.HasValue && o.FinalDate.Value.Date == today),
+            cancelled = orders.Count(o => o.Status == "Cancelado"),
+            activeCalls = orders.Count(o => o.Status != "Entregue" && o.Status != "Cancelado"),
+            callsStartedToday = orders.Count(o => o.EntryDate.Date == today)
         });
     }
 }

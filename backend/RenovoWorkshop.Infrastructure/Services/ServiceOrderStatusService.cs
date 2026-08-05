@@ -79,7 +79,19 @@ public class ServiceOrderStatusService : IServiceOrderStatusService
         var customer = await _context.Customers.FindAsync(new object?[] { order.CustomerId }, cancellationToken);
         if (customer is not null)
         {
-            await _whatsAppService.SendStatusMessageAsync(order, customer, previousStatus, newStatus, notes, cancellationToken);
+            // Fotos só fazem sentido no pedido de aprovação (peças defeituosas que
+            // justificam o orçamento) — nas demais transições não buscamos nada.
+            IReadOnlyList<string>? photoUrls = null;
+            if (newStatus == "Aguardando aprovação")
+            {
+                photoUrls = await _context.ServiceOrderPhotos
+                    .Where(p => p.ServiceOrderId == order.Id)
+                    .OrderByDescending(p => p.UploadedAt)
+                    .Select(p => p.Url)
+                    .ToListAsync(cancellationToken);
+            }
+
+            await _whatsAppService.SendStatusMessageAsync(order, customer, previousStatus, newStatus, notes, photoUrls, cancellationToken);
         }
 
         await _notificationService.NotifyStatusUpdateAsync(order.Id, newStatus, changedBy, order.AssignedUserId, cancellationToken);

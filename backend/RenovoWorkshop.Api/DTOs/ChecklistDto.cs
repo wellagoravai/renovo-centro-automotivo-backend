@@ -28,9 +28,17 @@ public class VehicleCheckListDto
     public bool Triangle { get; set; }
     public bool SpareKey { get; set; }
     public bool Documents { get; set; }
+    public bool FogLights { get; set; }
+    public bool Hubcaps { get; set; }
+    public bool Antenna { get; set; }
+    public bool WheelWrench { get; set; }
+    public bool FloorMat { get; set; }
+    public bool Radio { get; set; }
+    public bool IgnitionKeys { get; set; }
     public string GeneralState { get; set; } = string.Empty;
     public string Observations { get; set; } = string.Empty;
     public string VisualDamage { get; set; } = string.Empty;
+    public string DamagePoints { get; set; } = string.Empty;
     public string? Photos { get; set; }
     public DateTime CheckedAt { get; set; }
     public string ResponsibleUser { get; set; } = string.Empty;
@@ -67,9 +75,17 @@ public class CreateCheckListDto
     public bool Triangle { get; set; }
     public bool SpareKey { get; set; }
     public bool Documents { get; set; }
+    public bool FogLights { get; set; }
+    public bool Hubcaps { get; set; }
+    public bool Antenna { get; set; }
+    public bool WheelWrench { get; set; }
+    public bool FloorMat { get; set; }
+    public bool Radio { get; set; }
+    public bool IgnitionKeys { get; set; }
     public string GeneralState { get; set; } = string.Empty;
     public string Observations { get; set; } = string.Empty;
     public string VisualDamage { get; set; } = string.Empty;
+    public string DamagePoints { get; set; } = string.Empty;
     public string Photos { get; set; } = string.Empty;
     public string ResponsibleUser { get; set; } = string.Empty;
     public string? GpsLocation { get; set; }

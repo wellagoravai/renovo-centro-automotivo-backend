@@ -11,9 +11,12 @@ public class FakeWhatsAppService : IWhatsAppService
     public string BuildStatusMessage(ServiceOrder order, Customer customer, string previousStatus, string newStatus, string? notes = null)
         => $"{previousStatus}->{newStatus}";
 
-    public Task<WhatsAppSendResult> SendStatusMessageAsync(ServiceOrder order, Customer customer, string previousStatus, string newStatus, string? notes = null, CancellationToken cancellationToken = default)
+    public List<string> PhotoUrlsSent { get; } = new();
+
+    public Task<WhatsAppSendResult> SendStatusMessageAsync(ServiceOrder order, Customer customer, string previousStatus, string newStatus, string? notes = null, IReadOnlyList<string>? photoUrls = null, CancellationToken cancellationToken = default)
     {
         StatusMessagesSent++;
+        if (photoUrls is not null) PhotoUrlsSent.AddRange(photoUrls);
         return Task.FromResult(new WhatsAppSendResult(true, "ok"));
     }
 

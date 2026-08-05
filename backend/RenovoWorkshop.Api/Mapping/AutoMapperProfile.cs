@@ -72,6 +72,10 @@ public class AutoMapperProfile : Profile
 
         CreateMap<CreateCheckListDto, VehicleCheckList>();
 
+        // TowServiceDetails mappings
+        CreateMap<TowServiceDetails, TowServiceDetailsDto>();
+        CreateMap<TowServiceDetailsDto, TowServiceDetails>();
+
         // Supplier mappings
         CreateMap<Supplier, SupplierDto>()
             .ForMember(dest => dest.PurchaseOrderCount, opt => opt.MapFrom(src => src.PurchaseOrders.Count));

@@ -23,6 +23,7 @@ public class RenovoWorkshopDbContext : DbContext
     public DbSet<ServiceOrderItem> ServiceOrderItems => Set<ServiceOrderItem>();
     public DbSet<ServiceOrderPhoto> ServiceOrderPhotos => Set<ServiceOrderPhoto>();
     public DbSet<WorkshopSettings> WorkshopSettings => Set<WorkshopSettings>();
+    public DbSet<TowServiceDetails> TowServiceDetails => Set<TowServiceDetails>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -48,6 +49,7 @@ public class RenovoWorkshopDbContext : DbContext
             entity.HasKey(s => s.Id);
             entity.Property(s => s.Number).IsRequired().HasMaxLength(50);
             entity.Property(s => s.EstimatedTime).HasPrecision(10, 2);
+            entity.Property(s => s.LaborValue).HasPrecision(12, 2);
             entity.Property(s => s.Value).HasPrecision(12, 2);
             entity.HasOne(s => s.Customer)
                 .WithMany(c => c.ServiceOrders)
@@ -100,6 +102,15 @@ public class RenovoWorkshopDbContext : DbContext
             entity.HasOne(c => c.ServiceOrder)
                 .WithMany()
                 .HasForeignKey(c => c.ServiceOrderId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<TowServiceDetails>(entity =>
+        {
+            entity.HasKey(t => t.Id);
+            entity.HasOne(t => t.ServiceOrder)
+                .WithMany()
+                .HasForeignKey(t => t.ServiceOrderId)
                 .OnDelete(DeleteBehavior.Cascade);
         });
 

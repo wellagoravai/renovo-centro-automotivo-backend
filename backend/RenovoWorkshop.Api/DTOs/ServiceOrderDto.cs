@@ -4,6 +4,7 @@ public class ServiceOrderDto
 {
     public Guid Id { get; set; }
     public string Number { get; set; } = string.Empty;
+    public string ServiceType { get; set; } = string.Empty;
     public string ProblemReported { get; set; } = string.Empty;
     public string Diagnosis { get; set; } = string.Empty;
     public string Services { get; set; } = string.Empty;
@@ -11,6 +12,7 @@ public class ServiceOrderDto
     public string Oils { get; set; } = string.Empty;
     public string Filters { get; set; } = string.Empty;
     public decimal EstimatedTime { get; set; }
+    public decimal LaborValue { get; set; }
     public decimal Value { get; set; }
     public string Notes { get; set; } = string.Empty;
     public DateTime EntryDate { get; set; }
@@ -36,10 +38,26 @@ public class ServiceOrderDto
     public int VehicleMileage { get; set; }
     public List<ServiceOrderHistoryDto> History { get; set; } = new();
     public List<ServiceOrderItemDto> Items { get; set; } = new();
+    public TowServiceDetailsDto? TowDetails { get; set; }
+}
+
+public class TowServiceDetailsDto
+{
+    public string InsuranceCompany { get; set; } = string.Empty;
+    public string AssistanceCompany { get; set; } = string.Empty;
+    public string ClaimNumber { get; set; } = string.Empty;
+    public string PickupLocation { get; set; } = string.Empty;
+    public string DeliveryDestination { get; set; } = string.Empty;
+    public string TowUnit { get; set; } = string.Empty;
+    public string DeliveredByName { get; set; } = string.Empty;
+    public string DeliveredByDocument { get; set; } = string.Empty;
+    public string ReceivedByName { get; set; } = string.Empty;
+    public string ReceivedByDocument { get; set; } = string.Empty;
 }
 
 public class CreateServiceOrderDto
 {
+    public string ServiceType { get; set; } = "Oficina";
     public string ProblemReported { get; set; } = string.Empty;
     public string Diagnosis { get; set; } = string.Empty;
     public string Services { get; set; } = string.Empty;
@@ -47,7 +65,7 @@ public class CreateServiceOrderDto
     public string Oils { get; set; } = string.Empty;
     public string Filters { get; set; } = string.Empty;
     public decimal EstimatedTime { get; set; }
-    public decimal Value { get; set; }
+    public decimal LaborValue { get; set; }
     public string Notes { get; set; } = string.Empty;
     public DateTime? EstimatedDate { get; set; }
     public string Status { get; set; } = "Recebido";
@@ -57,10 +75,12 @@ public class CreateServiceOrderDto
     public Guid? ChecklistId { get; set; }
     public Guid CustomerId { get; set; }
     public Guid VehicleId { get; set; }
+    public TowServiceDetailsDto? TowDetails { get; set; }
 }
 
 public class CreateServiceOrderWithCustomerVehicleDto
 {
+    public string ServiceType { get; set; } = "Oficina";
     public string ProblemReported { get; set; } = string.Empty;
     public string Services { get; set; } = string.Empty;
     public string Notes { get; set; } = string.Empty;
@@ -69,6 +89,7 @@ public class CreateServiceOrderWithCustomerVehicleDto
     public string ResponsibleUser { get; set; } = string.Empty;
     public Guid? AssignedUserId { get; set; }
     public string Photos { get; set; } = string.Empty;
+    public TowServiceDetailsDto? TowDetails { get; set; }
 
     // Customer data
     public CustomerInfoDto Customer { get; set; } = new();
@@ -85,10 +106,11 @@ public class UpdateServiceOrderDto
     public string Oils { get; set; } = string.Empty;
     public string Filters { get; set; } = string.Empty;
     public decimal EstimatedTime { get; set; }
-    public decimal Value { get; set; }
+    public decimal LaborValue { get; set; }
     public string Notes { get; set; } = string.Empty;
     public string Photos { get; set; } = string.Empty;
     public Guid? AssignedUserId { get; set; }
+    public TowServiceDetailsDto? TowDetails { get; set; }
 }
 
 public class ServiceOrderItemDto

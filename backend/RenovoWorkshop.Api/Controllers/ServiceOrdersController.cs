@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using RenovoWorkshop.Api.DTOs;
 using RenovoWorkshop.Application.Interfaces;
+using RenovoWorkshop.Domain.Constants;
 using RenovoWorkshop.Domain.Entities;
 using RenovoWorkshop.Infrastructure.Persistence;
 
@@ -28,7 +29,7 @@ public class ServiceOrdersController : ControllerBase
     }
 
     [HttpGet]
-    public async Task<IActionResult> GetAll([FromQuery] string? status = null, [FromQuery] string? search = null, [FromQuery] Guid? assignedUserId = null)
+    public async Task<IActionResult> GetAll([FromQuery] string? status = null, [FromQuery] string? search = null, [FromQuery] Guid? assignedUserId = null, [FromQuery] string? serviceType = null)
     {
         var query = _context.ServiceOrders
             .Include(o => o.Customer)
@@ -37,6 +38,9 @@ public class ServiceOrdersController : ControllerBase
             .Include(o => o.History)
             .Include(o => o.Items).ThenInclude(i => i.InventoryItem)
             .AsQueryable();
+
+        if (!string.IsNullOrWhiteSpace(serviceType))
+            query = query.Where(o => o.ServiceType == serviceType);
 
         if (!string.IsNullOrWhiteSpace(status))
             query = query.Where(o => o.Status == status);
@@ -52,6 +56,7 @@ public class ServiceOrdersController : ControllerBase
 
         var orders = await query.OrderByDescending(o => o.EntryDate).ToListAsync();
         var orderDtos = _mapper.Map<List<ServiceOrderDto>>(orders);
+        await AttachTowDetailsAsync(orders, orderDtos);
         return Ok(orderDtos);
     }
 
@@ -68,8 +73,55 @@ public class ServiceOrdersController : ControllerBase
 
         if (order is null) return NotFound();
 
-        var orderDto = _mapper.Map<ServiceOrderDto>(order);
+        var orderDto = await MapToDtoAsync(order);
         return Ok(orderDto);
+    }
+
+    // ServiceOrder não tem navegação pra TowServiceDetails (mesma convenção já usada
+    // para VehicleCheckList) — por isso o AutoMapper não preenche TowDetails sozinho,
+    // e cada leitura de OS busca isso à parte, só quando ServiceType == Guincho.
+    private async Task<ServiceOrderDto> MapToDtoAsync(ServiceOrder order)
+    {
+        var dto = _mapper.Map<ServiceOrderDto>(order);
+        if (order.ServiceType == ServiceOrderTypes.Guincho)
+        {
+            var towDetails = await _context.TowServiceDetails.FirstOrDefaultAsync(t => t.ServiceOrderId == order.Id);
+            if (towDetails is not null)
+                dto.TowDetails = _mapper.Map<TowServiceDetailsDto>(towDetails);
+        }
+        return dto;
+    }
+
+    private async Task AttachTowDetailsAsync(List<ServiceOrder> orders, List<ServiceOrderDto> dtos)
+    {
+        var towOrderIds = orders.Where(o => o.ServiceType == ServiceOrderTypes.Guincho).Select(o => o.Id).ToList();
+        if (towOrderIds.Count == 0) return;
+
+        var towDetailsByOrderId = await _context.TowServiceDetails
+            .Where(t => towOrderIds.Contains(t.ServiceOrderId))
+            .ToDictionaryAsync(t => t.ServiceOrderId);
+
+        foreach (var dto in dtos)
+        {
+            if (towDetailsByOrderId.TryGetValue(dto.Id, out var towDetails))
+                dto.TowDetails = _mapper.Map<TowServiceDetailsDto>(towDetails);
+        }
+    }
+
+    private async Task UpsertTowDetailsAsync(Guid orderId, TowServiceDetailsDto towDetailsDto)
+    {
+        var existing = await _context.TowServiceDetails.FirstOrDefaultAsync(t => t.ServiceOrderId == orderId);
+        if (existing is null)
+        {
+            var entity = _mapper.Map<TowServiceDetails>(towDetailsDto);
+            entity.Id = Guid.NewGuid();
+            entity.ServiceOrderId = orderId;
+            _context.TowServiceDetails.Add(entity);
+        }
+        else
+        {
+            _mapper.Map(towDetailsDto, existing);
+        }
     }
 
     [HttpPut("{id:guid}")]
@@ -87,13 +139,18 @@ public class ServiceOrdersController : ControllerBase
         if (order is null) return NotFound();
 
         _mapper.Map(updateDto, order);
+        RecalculateValue(order);
+
+        if (updateDto.TowDetails is not null)
+            await UpsertTowDetailsAsync(order.Id, updateDto.TowDetails);
+
         await _context.SaveChangesAsync();
 
         // AssignedUserId pode ter mudado; a navegação já carregada acima não
         // se atualiza sozinha só porque o FK escalar mudou.
         await _context.Entry(order).Reference(o => o.AssignedUser).LoadAsync();
 
-        var orderDto = _mapper.Map<ServiceOrderDto>(order);
+        var orderDto = await MapToDtoAsync(order);
         return Ok(orderDto);
     }
 
@@ -129,7 +186,10 @@ public class ServiceOrdersController : ControllerBase
             .Include(o => o.Items).ThenInclude(i => i.InventoryItem)
             .FirstAsync(o => o.Id == id);
 
-        return Ok(_mapper.Map<ServiceOrderDto>(updatedOrder));
+        RecalculateValue(updatedOrder);
+        await _context.SaveChangesAsync();
+
+        return Ok(await MapToDtoAsync(updatedOrder));
     }
 
     [HttpDelete("{id:guid}/items/{itemId:guid}")]
@@ -142,7 +202,21 @@ public class ServiceOrdersController : ControllerBase
         _context.ServiceOrderItems.Remove(item);
         await _context.SaveChangesAsync();
 
+        var order = await _context.ServiceOrders
+            .Include(o => o.Items)
+            .FirstAsync(o => o.Id == id);
+        RecalculateValue(order);
+        await _context.SaveChangesAsync();
+
         return NoContent();
+    }
+
+    // Value nunca é digitado diretamente — é sempre mão de obra + soma das peças
+    // lançadas, para o resumo de orçamento mandado ao cliente (e os relatórios que
+    // leem Value) nunca ficarem incoerentes com os itens reais da OS.
+    private static void RecalculateValue(ServiceOrder order)
+    {
+        order.Value = order.LaborValue + order.Items.Sum(i => i.Quantity * i.UnitValue);
     }
 
     [HttpPost]
@@ -159,6 +233,7 @@ public class ServiceOrdersController : ControllerBase
         order.Id = Guid.NewGuid();
         order.Number = $"OS-{DateTime.UtcNow:yyyyMMddHHmmss}";
         order.EntryDate = DateTime.UtcNow;
+        RecalculateValue(order);
 
         _context.ServiceOrders.Add(order);
 
@@ -172,9 +247,12 @@ public class ServiceOrdersController : ControllerBase
             Notes = "Ordem criada"
         });
 
+        if (order.ServiceType == ServiceOrderTypes.Guincho && createOrderDto.TowDetails is not null)
+            await UpsertTowDetailsAsync(order.Id, createOrderDto.TowDetails);
+
         await _context.SaveChangesAsync();
 
-        var orderDto = _mapper.Map<ServiceOrderDto>(order);
+        var orderDto = await MapToDtoAsync(order);
         return CreatedAtAction(nameof(GetById), new { id = order.Id }, orderDto);
     }
 
@@ -241,6 +319,7 @@ public class ServiceOrdersController : ControllerBase
         {
             Id = Guid.NewGuid(),
             Number = $"OS-{DateTime.UtcNow:yyyyMMddHHmmss}",
+            ServiceType = request.ServiceType,
             ProblemReported = request.ProblemReported,
             Services = request.Services,
             Notes = request.Notes,
@@ -266,9 +345,12 @@ public class ServiceOrdersController : ControllerBase
             Notes = "Ordem criada"
         });
 
+        if (order.ServiceType == ServiceOrderTypes.Guincho && request.TowDetails is not null)
+            await UpsertTowDetailsAsync(order.Id, request.TowDetails);
+
         await _context.SaveChangesAsync();
 
-        var orderDto = _mapper.Map<ServiceOrderDto>(order);
+        var orderDto = await MapToDtoAsync(order);
         return CreatedAtAction(nameof(GetById), new { id = order.Id }, orderDto);
     }
 
@@ -279,9 +361,51 @@ public class ServiceOrdersController : ControllerBase
         var result = await _statusService.ChangeStatusAsync(id, request.Status, request.Notes, request.ChangedBy, HttpContext.RequestAborted);
         if (result.Order is null) return NotFound();
 
-        var orderDto = _mapper.Map<ServiceOrderDto>(result.Order);
+        var orderDto = await MapToDtoAsync(result.Order);
         return Ok(new { message = result.Message, order = orderDto });
     }
+
+    // O guincho traz o carro e o cliente decide deixar pra reparo: em vez de abrir
+    // uma OS nova (recadastrando cliente/veículo), a mesma OS muda de tipo e passa a
+    // valer o fluxo de status/diagnóstico/peças de oficina. O TowServiceDetails
+    // já registrado fica como está, como histórico de que essa OS começou como guincho.
+    [HttpPatch("{id:guid}/convert-to-oficina")]
+    [Authorize(Policy = "CanManageOrders")]
+    public async Task<IActionResult> ConvertToOficina(Guid id, [FromBody] ConvertToOficinaRequest request)
+    {
+        var order = await _context.ServiceOrders
+            .Include(o => o.Customer)
+            .Include(o => o.Vehicle)
+            .Include(o => o.AssignedUser)
+            .Include(o => o.History)
+            .Include(o => o.Items).ThenInclude(i => i.InventoryItem)
+            .FirstOrDefaultAsync(o => o.Id == id);
+
+        if (order is null) return NotFound();
+
+        if (order.ServiceType != ServiceOrderTypes.Guincho)
+            return BadRequest(new { message = "Só é possível converter uma OS que hoje é do tipo Guincho." });
+
+        order.ServiceType = ServiceOrderTypes.Oficina;
+        order.Status = ServiceOrderStatuses.Oficina[0];
+
+        _context.ServiceOrderHistories.Add(new ServiceOrderHistory
+        {
+            Id = Guid.NewGuid(),
+            ServiceOrderId = order.Id,
+            Status = order.Status,
+            ChangedAt = DateTime.UtcNow,
+            ChangedBy = request.ChangedBy,
+            Notes = "Convertida de Guincho para Oficina (reparo)"
+        });
+
+        await _context.SaveChangesAsync();
+
+        var orderDto = await MapToDtoAsync(order);
+        return Ok(orderDto);
+    }
+
+    public record ConvertToOficinaRequest(string ChangedBy);
 
     [HttpPatch("{id:guid}/checklist")]
     [Authorize(Policy = "CanManageOrders")]
@@ -294,7 +418,7 @@ public class ServiceOrdersController : ControllerBase
         order.ChecklistId = request.ChecklistId;
         await _context.SaveChangesAsync();
 
-        var orderDto = _mapper.Map<ServiceOrderDto>(order);
+        var orderDto = await MapToDtoAsync(order);
         return Ok(orderDto);
     }
 

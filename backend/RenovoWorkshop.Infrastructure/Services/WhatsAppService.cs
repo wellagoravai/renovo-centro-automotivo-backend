@@ -24,10 +24,7 @@ public class WhatsAppService : IWhatsAppService
 
         return newStatus switch
         {
-            "Aguardando aprovação" =>
-                $"Olá {customer.Name}! O orçamento da sua ordem {order.Number} está pronto para aprovação." +
-                (details is null ? string.Empty : $" {details}") +
-                " Responda SIM para aprovar ou NÃO para recusar o orçamento.",
+            "Aguardando aprovação" => BuildBudgetMessage(order, customer, details),
             "Em manutenção" =>
                 $"Olá {customer.Name}! Sua ordem {order.Number} entrou em manutenção." +
                 (details is null ? string.Empty : $" {details}"),
@@ -39,7 +36,52 @@ public class WhatsAppService : IWhatsAppService
         };
     }
 
-    public async Task<WhatsAppSendResult> SendStatusMessageAsync(ServiceOrder order, Customer customer, string previousStatus, string newStatus, string? notes = null, CancellationToken cancellationToken = default)
+    // Resumo do orçamento: diagnóstico, serviços, peças lançadas, mão de obra e total —
+    // tudo que hoje já está na OS (mecânico registra ao diagnosticar), sem depender de
+    // nenhum documento fiscal.
+    private static string BuildBudgetMessage(ServiceOrder order, Customer customer, string? details)
+    {
+        var lines = new List<string>
+        {
+            $"Olá {customer.Name}! O orçamento da sua ordem {order.Number} está pronto para aprovação."
+        };
+
+        if (!string.IsNullOrWhiteSpace(order.Diagnosis))
+            lines.Add($"Diagnóstico: {order.Diagnosis}");
+
+        if (!string.IsNullOrWhiteSpace(order.Services))
+            lines.Add($"Serviços: {order.Services}");
+
+        if (order.Items.Count > 0)
+        {
+            lines.Add("Peças:");
+            foreach (var item in order.Items)
+            {
+                var description = item.InventoryItem?.Description ?? "Item";
+                lines.Add($"- {description} (x{item.Quantity}): R$ {FormatCurrency(item.Quantity * item.UnitValue)}");
+            }
+        }
+
+        if (order.LaborValue > 0)
+            lines.Add($"Mão de obra: R$ {FormatCurrency(order.LaborValue)}");
+
+        lines.Add($"Total: R$ {FormatCurrency(order.Value)}");
+
+        if (details is not null)
+            lines.Add(details);
+
+        lines.Add("Responda SIM para aprovar ou NÃO para recusar o orçamento.");
+
+        return string.Join("\n", lines);
+    }
+
+    // ':N2' depende de dados de cultura que o runtime não carrega com
+    // InvariantGlobalization=true (o projeto usa essa flag) — formata na mão
+    // pra sempre sair com vírgula decimal, independente do ambiente.
+    private static string FormatCurrency(decimal value) =>
+        value.ToString("F2", System.Globalization.CultureInfo.InvariantCulture).Replace('.', ',');
+
+    public async Task<WhatsAppSendResult> SendStatusMessageAsync(ServiceOrder order, Customer customer, string previousStatus, string newStatus, string? notes = null, IReadOnlyList<string>? photoUrls = null, CancellationToken cancellationToken = default)
     {
         var recipient = !string.IsNullOrWhiteSpace(customer.WhatsApp)
             ? customer.WhatsApp
@@ -52,7 +94,41 @@ public class WhatsAppService : IWhatsAppService
         }
 
         var message = BuildStatusMessage(order, customer, previousStatus, newStatus, notes);
-        return await SendAsync(recipient, message, order.Id, customer.Id, order.Status, cancellationToken);
+        var result = await SendAsync(recipient, message, order.Id, customer.Id, order.Status, cancellationToken);
+
+        if (photoUrls is { Count: > 0 })
+        {
+            foreach (var photoUrl in photoUrls)
+            {
+                await SendMediaAsync(recipient, photoUrl, order.Id, customer.Id, order.Status, cancellationToken);
+            }
+        }
+
+        return result;
+    }
+
+    private async Task SendMediaAsync(string recipient, string mediaUrl, Guid? serviceOrderId, Guid? customerId, string statusLabel, CancellationToken cancellationToken)
+    {
+        var isEnabled = _configuration?["WhatsApp:IsEnabled"]?.Equals("true", StringComparison.OrdinalIgnoreCase) == true;
+        var baseUrl = _configuration?["WhatsApp:Evolution:BaseUrl"];
+        var apiKey = _configuration?["WhatsApp:Evolution:ApiKey"];
+        var instance = _configuration?["WhatsApp:Evolution:Instance"];
+
+        if (!isEnabled || string.IsNullOrWhiteSpace(baseUrl) || string.IsNullOrWhiteSpace(instance) || _evolutionClient is null)
+        {
+            await LogMessageAsync(serviceOrderId, customerId, recipient, statusLabel, "Queued", "Integração desabilitada ou Evolution API não configurada.", mediaUrl, "Outbound", cancellationToken);
+            return;
+        }
+
+        try
+        {
+            var result = await _evolutionClient.SendMediaAsync(baseUrl, apiKey ?? string.Empty, instance, NormalizePhone(recipient), mediaUrl, caption: null, cancellationToken);
+            await LogMessageAsync(serviceOrderId, customerId, recipient, statusLabel, result.Success ? "Sent" : "Failed", result.Error, mediaUrl, "Outbound", cancellationToken, result.MessageId);
+        }
+        catch (Exception ex)
+        {
+            await LogMessageAsync(serviceOrderId, customerId, recipient, statusLabel, "Failed", ex.Message, mediaUrl, "Outbound", cancellationToken);
+        }
     }
 
     public async Task<WhatsAppSendResult> SendRawMessageAsync(string phone, string text, Guid? serviceOrderId = null, Guid? customerId = null, CancellationToken cancellationToken = default)

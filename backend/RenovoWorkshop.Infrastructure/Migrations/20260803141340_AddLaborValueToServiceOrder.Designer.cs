@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using RenovoWorkshop.Infrastructure.Persistence;
 
@@ -10,9 +11,11 @@ using RenovoWorkshop.Infrastructure.Persistence;
 namespace RenovoWorkshop.Infrastructure.Migrations
 {
     [DbContext(typeof(RenovoWorkshopDbContext))]
-    partial class RenovoWorkshopDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260803141340_AddLaborValueToServiceOrder")]
+    partial class AddLaborValueToServiceOrder
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder.HasAnnotation("ProductVersion", "8.0.8");
@@ -298,10 +301,6 @@ namespace RenovoWorkshop.Infrastructure.Migrations
                         .IsRequired()
                         .HasColumnType("TEXT");
 
-                    b.Property<string>("ServiceType")
-                        .IsRequired()
-                        .HasColumnType("TEXT");
-
                     b.Property<string>("Services")
                         .IsRequired()
                         .HasColumnType("TEXT");
@@ -456,62 +455,6 @@ namespace RenovoWorkshop.Infrastructure.Migrations
                     b.ToTable("Suppliers");
                 });
 
-            modelBuilder.Entity("RenovoWorkshop.Domain.Entities.TowServiceDetails", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("TEXT");
-
-                    b.Property<string>("AssistanceCompany")
-                        .IsRequired()
-                        .HasColumnType("TEXT");
-
-                    b.Property<string>("ClaimNumber")
-                        .IsRequired()
-                        .HasColumnType("TEXT");
-
-                    b.Property<string>("DeliveredByDocument")
-                        .IsRequired()
-                        .HasColumnType("TEXT");
-
-                    b.Property<string>("DeliveredByName")
-                        .IsRequired()
-                        .HasColumnType("TEXT");
-
-                    b.Property<string>("DeliveryDestination")
-                        .IsRequired()
-                        .HasColumnType("TEXT");
-
-                    b.Property<string>("InsuranceCompany")
-                        .IsRequired()
-                        .HasColumnType("TEXT");
-
-                    b.Property<string>("PickupLocation")
-                        .IsRequired()
-                        .HasColumnType("TEXT");
-
-                    b.Property<string>("ReceivedByDocument")
-                        .IsRequired()
-                        .HasColumnType("TEXT");
-
-                    b.Property<string>("ReceivedByName")
-                        .IsRequired()
-                        .HasColumnType("TEXT");
-
-                    b.Property<Guid>("ServiceOrderId")
-                        .HasColumnType("TEXT");
-
-                    b.Property<string>("TowUnit")
-                        .IsRequired()
-                        .HasColumnType("TEXT");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("ServiceOrderId");
-
-                    b.ToTable("TowServiceDetails");
-                });
-
             modelBuilder.Entity("RenovoWorkshop.Domain.Entities.Vehicle", b =>
                 {
                     b.Property<Guid>("Id")
@@ -582,9 +525,6 @@ namespace RenovoWorkshop.Infrastructure.Migrations
                     b.Property<bool>("AirConditioning")
                         .HasColumnType("INTEGER");
 
-                    b.Property<bool>("Antenna")
-                        .HasColumnType("INTEGER");
-
                     b.Property<DateTime>("CheckedAt")
                         .HasColumnType("TEXT");
 
@@ -592,20 +532,10 @@ namespace RenovoWorkshop.Infrastructure.Migrations
                         .IsRequired()
                         .HasColumnType("TEXT");
 
-                    b.Property<string>("DamagePoints")
-                        .IsRequired()
-                        .HasColumnType("TEXT");
-
                     b.Property<bool>("Dashboard")
                         .HasColumnType("INTEGER");
 
                     b.Property<bool>("Documents")
-                        .HasColumnType("INTEGER");
-
-                    b.Property<bool>("FloorMat")
-                        .HasColumnType("INTEGER");
-
-                    b.Property<bool>("FogLights")
                         .HasColumnType("INTEGER");
 
                     b.Property<string>("FuelLevel")
@@ -620,12 +550,6 @@ namespace RenovoWorkshop.Infrastructure.Migrations
                         .HasColumnType("TEXT");
 
                     b.Property<bool>("Headlights")
-                        .HasColumnType("INTEGER");
-
-                    b.Property<bool>("Hubcaps")
-                        .HasColumnType("INTEGER");
-
-                    b.Property<bool>("IgnitionKeys")
                         .HasColumnType("INTEGER");
 
                     b.Property<bool>("Jack")
@@ -651,9 +575,6 @@ namespace RenovoWorkshop.Infrastructure.Migrations
                     b.Property<string>("Photos")
                         .IsRequired()
                         .HasColumnType("TEXT");
-
-                    b.Property<bool>("Radio")
-                        .HasColumnType("INTEGER");
 
                     b.Property<string>("ResponsibleUser")
                         .IsRequired()
@@ -699,9 +620,6 @@ namespace RenovoWorkshop.Infrastructure.Migrations
                     b.Property<string>("VisualDamage")
                         .IsRequired()
                         .HasColumnType("TEXT");
-
-                    b.Property<bool>("WheelWrench")
-                        .HasColumnType("INTEGER");
 
                     b.Property<bool>("Windows")
                         .HasColumnType("INTEGER");
@@ -894,17 +812,6 @@ namespace RenovoWorkshop.Infrastructure.Migrations
                 });
 
             modelBuilder.Entity("RenovoWorkshop.Domain.Entities.ServiceOrderPhoto", b =>
-                {
-                    b.HasOne("RenovoWorkshop.Domain.Entities.ServiceOrder", "ServiceOrder")
-                        .WithMany()
-                        .HasForeignKey("ServiceOrderId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("ServiceOrder");
-                });
-
-            modelBuilder.Entity("RenovoWorkshop.Domain.Entities.TowServiceDetails", b =>
                 {
                     b.HasOne("RenovoWorkshop.Domain.Entities.ServiceOrder", "ServiceOrder")
                         .WithMany()
