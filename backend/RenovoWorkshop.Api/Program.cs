@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
@@ -12,6 +13,7 @@ using RenovoWorkshop.Infrastructure.Persistence;
 using RenovoWorkshop.Infrastructure.Repositories;
 using RenovoWorkshop.Infrastructure.Services;
 using System.Text;
+using System.Threading.RateLimiting;
 
 // Carrega backend/.env para as variáveis de ambiente do processo antes do
 // builder ler a configuração. Em produção (Railway) não existe .env no disco
@@ -95,6 +97,43 @@ builder.Services.AddCors(options =>
     });
 });
 
+// Railway/qualquer PaaS coloca a API atrás de um proxy reverso — sem isso,
+// HttpContext.Connection.RemoteIpAddress mostraria sempre o IP do proxy (mesmo
+// IP pra todo mundo), e o rate limiter por IP do login viraria um limite global.
+// KnownNetworks/KnownProxies ficam vazios de propósito: não temos como saber os IPs
+// fixos do proxy do provedor, então confiamos no X-Forwarded-For de qualquer peer
+// direto (aceitável aqui porque o container só é alcançável através desse proxy).
+builder.Services.Configure<ForwardedHeadersOptions>(options =>
+{
+    options.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
+    options.KnownNetworks.Clear();
+    options.KnownProxies.Clear();
+});
+
+// Trava por IP na tentativa de login — limite mais alto que o de bloqueio de conta em
+// AuthController (que é por usuário), pra cobrir tentativas contra vários usuários
+// diferentes vindas da mesma origem (o bloqueio de conta sozinho não pegaria isso).
+builder.Services.AddRateLimiter(options =>
+{
+    options.AddPolicy("login", httpContext => RateLimitPartition.GetFixedWindowLimiter(
+        partitionKey: httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+        factory: _ => new FixedWindowRateLimiterOptions
+        {
+            PermitLimit = 10,
+            Window = TimeSpan.FromMinutes(1),
+            QueueLimit = 0
+        }));
+
+    options.OnRejected = async (context, cancellationToken) =>
+    {
+        context.HttpContext.Response.StatusCode = StatusCodes.Status429TooManyRequests;
+        context.HttpContext.Response.ContentType = "application/json";
+        await context.HttpContext.Response.WriteAsJsonAsync(
+            new { message = "Muitas tentativas de login. Aguarde um momento antes de tentar novamente." },
+            cancellationToken);
+    };
+});
+
 builder.Services.AddScoped(typeof(IRepository<>), typeof(Repository<>));
 builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<IWhatsAppService, WhatsAppService>();
@@ -141,14 +180,20 @@ var app = builder.Build();
 using (var scope = app.Services.CreateScope())
 {
     var context = scope.ServiceProvider.GetRequiredService<RenovoWorkshopDbContext>();
-    // As migrations existentes foram geradas para o provedor SQLite (usam tipos
-    // como "TEXT" cravados) e falham no Postgres ao alterar colunas com FK ativa.
-    // Para Npgsql criamos o schema direto do model atual em vez de reaplicar
-    // esse histórico. O provedor InMemory (testes de integração) também não
-    // suporta Migrate().
+    // As migrations em RenovoWorkshop.Infrastructure/Migrations são geradas contra o
+    // provedor Npgsql (produção é sempre Postgres) — por isso Postgres usa Migrate()
+    // de verdade, com histórico rastreado em __EFMigrationsHistory. O SQLite local é
+    // descartável e não precisa desse histórico, então usa EnsureCreated() direto do
+    // model atual (mais simples, e evita reaplicar migrations com tipos de coluna
+    // que não são os do SQLite). O provedor InMemory (testes de integração) também
+    // não suporta Migrate().
+    //
+    // IMPORTANTE ao gerar uma nova migration: rode `dotnet ef migrations add` com
+    // ConnectionStrings__DefaultConnection contendo "Host=" (nem que seja uma string
+    // fake, tipo "Host=localhost;Database=x;Username=x;Password=x") pra forçar o
+    // design-time a usar o provedor Npgsql — senão a migration sai com tipos do
+    // SQLite (ex.: "TEXT") e quebra de novo em produção.
     if (context.Database.ProviderName?.Contains("Npgsql", StringComparison.OrdinalIgnoreCase) == true)
-        context.Database.EnsureCreated();
-    else if (context.Database.IsRelational())
         context.Database.Migrate();
     else
         context.Database.EnsureCreated();
@@ -172,6 +217,9 @@ using (var scope = app.Services.CreateScope())
     }
 }
 
+// Precisa vir antes de qualquer middleware que use o IP do cliente (rate limiter, logs etc.).
+app.UseForwardedHeaders();
+
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
@@ -179,6 +227,7 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseCors(app.Environment.IsDevelopment() ? "AllowLocalhost" : "AllowProduction");
+app.UseRateLimiter();
 
 app.UseExceptionHandler(errorApp =>
 {

@@ -6,7 +6,7 @@ using Microsoft.EntityFrameworkCore.Migrations;
 namespace RenovoWorkshop.Infrastructure.Migrations
 {
     /// <inheritdoc />
-    public partial class InitialCreate : Migration
+    public partial class InitialPostgresCreate : Migration
     {
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
@@ -103,11 +103,28 @@ namespace RenovoWorkshop.Infrastructure.Migrations
                     DeliveryStatus = table.Column<string>(type: "text", nullable: false),
                     ProviderMessageId = table.Column<string>(type: "text", nullable: true),
                     Error = table.Column<string>(type: "text", nullable: true),
-                    Provider = table.Column<string>(type: "text", nullable: false)
+                    Provider = table.Column<string>(type: "text", nullable: false),
+                    Direction = table.Column<string>(type: "character varying(20)", maxLength: 20, nullable: false, defaultValue: "Outbound")
                 },
                 constraints: table =>
                 {
                     table.PrimaryKey("PK_WhatsAppMessageLogs", x => x.Id);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "WorkshopSettings",
+                columns: table => new
+                {
+                    Id = table.Column<Guid>(type: "uuid", nullable: false),
+                    Name = table.Column<string>(type: "character varying(200)", maxLength: 200, nullable: false),
+                    Phone = table.Column<string>(type: "character varying(30)", maxLength: 30, nullable: false),
+                    Email = table.Column<string>(type: "character varying(200)", maxLength: 200, nullable: false),
+                    Address = table.Column<string>(type: "text", nullable: false),
+                    Logo = table.Column<string>(type: "text", nullable: true)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_WorkshopSettings", x => x.Id);
                 });
 
             migrationBuilder.CreateTable(
@@ -169,6 +186,7 @@ namespace RenovoWorkshop.Infrastructure.Migrations
                 {
                     Id = table.Column<Guid>(type: "uuid", nullable: false),
                     Number = table.Column<string>(type: "character varying(50)", maxLength: 50, nullable: false),
+                    ServiceType = table.Column<string>(type: "text", nullable: false),
                     ProblemReported = table.Column<string>(type: "text", nullable: false),
                     Diagnosis = table.Column<string>(type: "text", nullable: false),
                     Services = table.Column<string>(type: "text", nullable: false),
@@ -176,6 +194,7 @@ namespace RenovoWorkshop.Infrastructure.Migrations
                     Oils = table.Column<string>(type: "text", nullable: false),
                     Filters = table.Column<string>(type: "text", nullable: false),
                     EstimatedTime = table.Column<decimal>(type: "numeric(10,2)", precision: 10, scale: 2, nullable: false),
+                    LaborValue = table.Column<decimal>(type: "numeric(12,2)", precision: 12, scale: 2, nullable: false),
                     Value = table.Column<decimal>(type: "numeric(12,2)", precision: 12, scale: 2, nullable: false),
                     Notes = table.Column<string>(type: "text", nullable: false),
                     EntryDate = table.Column<DateTime>(type: "timestamp with time zone", nullable: false),
@@ -183,9 +202,12 @@ namespace RenovoWorkshop.Infrastructure.Migrations
                     FinalDate = table.Column<DateTime>(type: "timestamp with time zone", nullable: true),
                     Status = table.Column<string>(type: "text", nullable: false),
                     ResponsibleUser = table.Column<string>(type: "text", nullable: false),
+                    AssignedUserId = table.Column<Guid>(type: "uuid", nullable: true),
                     HasChecklist = table.Column<bool>(type: "boolean", nullable: false),
                     ChecklistId = table.Column<Guid>(type: "uuid", nullable: true),
                     ApprovalLink = table.Column<string>(type: "text", nullable: true),
+                    Photos = table.Column<string>(type: "text", nullable: false),
+                    StockDeducted = table.Column<bool>(type: "boolean", nullable: false),
                     CustomerId = table.Column<Guid>(type: "uuid", nullable: false),
                     VehicleId = table.Column<Guid>(type: "uuid", nullable: false)
                 },
@@ -198,6 +220,12 @@ namespace RenovoWorkshop.Infrastructure.Migrations
                         principalTable: "Customers",
                         principalColumn: "Id",
                         onDelete: ReferentialAction.Restrict);
+                    table.ForeignKey(
+                        name: "FK_ServiceOrders_Users_AssignedUserId",
+                        column: x => x.AssignedUserId,
+                        principalTable: "Users",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.SetNull);
                     table.ForeignKey(
                         name: "FK_ServiceOrders_Vehicles_VehicleId",
                         column: x => x.VehicleId,
@@ -256,6 +284,82 @@ namespace RenovoWorkshop.Infrastructure.Migrations
                 });
 
             migrationBuilder.CreateTable(
+                name: "ServiceOrderItems",
+                columns: table => new
+                {
+                    Id = table.Column<Guid>(type: "uuid", nullable: false),
+                    ServiceOrderId = table.Column<Guid>(type: "uuid", nullable: false),
+                    InventoryItemId = table.Column<Guid>(type: "uuid", nullable: false),
+                    Quantity = table.Column<int>(type: "integer", nullable: false),
+                    UnitValue = table.Column<decimal>(type: "numeric(12,2)", precision: 12, scale: 2, nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_ServiceOrderItems", x => x.Id);
+                    table.ForeignKey(
+                        name: "FK_ServiceOrderItems_InventoryItems_InventoryItemId",
+                        column: x => x.InventoryItemId,
+                        principalTable: "InventoryItems",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Restrict);
+                    table.ForeignKey(
+                        name: "FK_ServiceOrderItems_ServiceOrders_ServiceOrderId",
+                        column: x => x.ServiceOrderId,
+                        principalTable: "ServiceOrders",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Cascade);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "ServiceOrderPhotos",
+                columns: table => new
+                {
+                    Id = table.Column<Guid>(type: "uuid", nullable: false),
+                    Url = table.Column<string>(type: "character varying(1000)", maxLength: 1000, nullable: false),
+                    UploadedAt = table.Column<DateTime>(type: "timestamp with time zone", nullable: false),
+                    UploadedBy = table.Column<string>(type: "character varying(200)", maxLength: 200, nullable: false),
+                    ServiceOrderId = table.Column<Guid>(type: "uuid", nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_ServiceOrderPhotos", x => x.Id);
+                    table.ForeignKey(
+                        name: "FK_ServiceOrderPhotos_ServiceOrders_ServiceOrderId",
+                        column: x => x.ServiceOrderId,
+                        principalTable: "ServiceOrders",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Cascade);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "TowServiceDetails",
+                columns: table => new
+                {
+                    Id = table.Column<Guid>(type: "uuid", nullable: false),
+                    ServiceOrderId = table.Column<Guid>(type: "uuid", nullable: false),
+                    InsuranceCompany = table.Column<string>(type: "text", nullable: false),
+                    AssistanceCompany = table.Column<string>(type: "text", nullable: false),
+                    ClaimNumber = table.Column<string>(type: "text", nullable: false),
+                    PickupLocation = table.Column<string>(type: "text", nullable: false),
+                    DeliveryDestination = table.Column<string>(type: "text", nullable: false),
+                    TowUnit = table.Column<string>(type: "text", nullable: false),
+                    DeliveredByName = table.Column<string>(type: "text", nullable: false),
+                    DeliveredByDocument = table.Column<string>(type: "text", nullable: false),
+                    ReceivedByName = table.Column<string>(type: "text", nullable: false),
+                    ReceivedByDocument = table.Column<string>(type: "text", nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_TowServiceDetails", x => x.Id);
+                    table.ForeignKey(
+                        name: "FK_TowServiceDetails_ServiceOrders_ServiceOrderId",
+                        column: x => x.ServiceOrderId,
+                        principalTable: "ServiceOrders",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Cascade);
+                });
+
+            migrationBuilder.CreateTable(
                 name: "VehicleCheckLists",
                 columns: table => new
                 {
@@ -267,6 +371,7 @@ namespace RenovoWorkshop.Infrastructure.Migrations
                     TireCondition = table.Column<string>(type: "text", nullable: false),
                     CoolingLevel = table.Column<string>(type: "text", nullable: false),
                     OilLevel = table.Column<string>(type: "text", nullable: false),
+                    SteeringFluidLevel = table.Column<string>(type: "text", nullable: false),
                     TirePressure = table.Column<string>(type: "text", nullable: false),
                     SpareTire = table.Column<bool>(type: "boolean", nullable: false),
                     Rims = table.Column<bool>(type: "boolean", nullable: false),
@@ -284,9 +389,17 @@ namespace RenovoWorkshop.Infrastructure.Migrations
                     Triangle = table.Column<bool>(type: "boolean", nullable: false),
                     SpareKey = table.Column<bool>(type: "boolean", nullable: false),
                     Documents = table.Column<bool>(type: "boolean", nullable: false),
+                    FogLights = table.Column<bool>(type: "boolean", nullable: false),
+                    Hubcaps = table.Column<bool>(type: "boolean", nullable: false),
+                    Antenna = table.Column<bool>(type: "boolean", nullable: false),
+                    WheelWrench = table.Column<bool>(type: "boolean", nullable: false),
+                    FloorMat = table.Column<bool>(type: "boolean", nullable: false),
+                    Radio = table.Column<bool>(type: "boolean", nullable: false),
+                    IgnitionKeys = table.Column<bool>(type: "boolean", nullable: false),
                     GeneralState = table.Column<string>(type: "text", nullable: false),
                     Observations = table.Column<string>(type: "text", nullable: false),
                     VisualDamage = table.Column<string>(type: "text", nullable: false),
+                    DamagePoints = table.Column<string>(type: "text", nullable: false),
                     Photos = table.Column<string>(type: "text", nullable: false),
                     CheckedAt = table.Column<DateTime>(type: "timestamp with time zone", nullable: false),
                     ResponsibleUser = table.Column<string>(type: "character varying(200)", maxLength: 200, nullable: false),
@@ -330,6 +443,26 @@ namespace RenovoWorkshop.Infrastructure.Migrations
                 column: "ServiceOrderId");
 
             migrationBuilder.CreateIndex(
+                name: "IX_ServiceOrderItems_InventoryItemId",
+                table: "ServiceOrderItems",
+                column: "InventoryItemId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_ServiceOrderItems_ServiceOrderId",
+                table: "ServiceOrderItems",
+                column: "ServiceOrderId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_ServiceOrderPhotos_ServiceOrderId",
+                table: "ServiceOrderPhotos",
+                column: "ServiceOrderId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_ServiceOrders_AssignedUserId",
+                table: "ServiceOrders",
+                column: "AssignedUserId");
+
+            migrationBuilder.CreateIndex(
                 name: "IX_ServiceOrders_CustomerId",
                 table: "ServiceOrders",
                 column: "CustomerId");
@@ -338,6 +471,11 @@ namespace RenovoWorkshop.Infrastructure.Migrations
                 name: "IX_ServiceOrders_VehicleId",
                 table: "ServiceOrders",
                 column: "VehicleId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_TowServiceDetails_ServiceOrderId",
+                table: "TowServiceDetails",
+                column: "ServiceOrderId");
 
             migrationBuilder.CreateIndex(
                 name: "IX_VehicleCheckLists_ServiceOrderId",
@@ -365,7 +503,13 @@ namespace RenovoWorkshop.Infrastructure.Migrations
                 name: "ServiceOrderHistories");
 
             migrationBuilder.DropTable(
-                name: "Users");
+                name: "ServiceOrderItems");
+
+            migrationBuilder.DropTable(
+                name: "ServiceOrderPhotos");
+
+            migrationBuilder.DropTable(
+                name: "TowServiceDetails");
 
             migrationBuilder.DropTable(
                 name: "VehicleCheckLists");
@@ -374,16 +518,22 @@ namespace RenovoWorkshop.Infrastructure.Migrations
                 name: "WhatsAppMessageLogs");
 
             migrationBuilder.DropTable(
-                name: "InventoryItems");
+                name: "WorkshopSettings");
 
             migrationBuilder.DropTable(
                 name: "PurchaseOrders");
+
+            migrationBuilder.DropTable(
+                name: "InventoryItems");
 
             migrationBuilder.DropTable(
                 name: "ServiceOrders");
 
             migrationBuilder.DropTable(
                 name: "Suppliers");
+
+            migrationBuilder.DropTable(
+                name: "Users");
 
             migrationBuilder.DropTable(
                 name: "Vehicles");

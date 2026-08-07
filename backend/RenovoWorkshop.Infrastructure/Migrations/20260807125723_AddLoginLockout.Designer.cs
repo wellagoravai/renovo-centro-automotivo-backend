@@ -12,8 +12,8 @@ using RenovoWorkshop.Infrastructure.Persistence;
 namespace RenovoWorkshop.Infrastructure.Migrations
 {
     [DbContext(typeof(RenovoWorkshopDbContext))]
-    [Migration("20260723020830_InitialCreate")]
-    partial class InitialCreate
+    [Migration("20260807125723_AddLoginLockout")]
+    partial class AddLoginLockout
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -38,12 +38,18 @@ namespace RenovoWorkshop.Infrastructure.Migrations
                         .IsRequired()
                         .HasColumnType("text");
 
+                    b.Property<int>("FailedLoginAttempts")
+                        .HasColumnType("integer");
+
                     b.Property<string>("FullName")
                         .IsRequired()
                         .HasColumnType("text");
 
                     b.Property<bool>("IsActive")
                         .HasColumnType("boolean");
+
+                    b.Property<DateTime?>("LockedOutUntil")
+                        .HasColumnType("timestamp with time zone");
 
                     b.Property<string>("PasswordHash")
                         .IsRequired()
@@ -240,6 +246,9 @@ namespace RenovoWorkshop.Infrastructure.Migrations
                     b.Property<string>("ApprovalLink")
                         .HasColumnType("text");
 
+                    b.Property<Guid?>("AssignedUserId")
+                        .HasColumnType("uuid");
+
                     b.Property<Guid?>("ChecklistId")
                         .HasColumnType("uuid");
 
@@ -270,6 +279,10 @@ namespace RenovoWorkshop.Infrastructure.Migrations
                     b.Property<bool>("HasChecklist")
                         .HasColumnType("boolean");
 
+                    b.Property<decimal>("LaborValue")
+                        .HasPrecision(12, 2)
+                        .HasColumnType("numeric(12,2)");
+
                     b.Property<string>("Notes")
                         .IsRequired()
                         .HasColumnType("text");
@@ -287,11 +300,19 @@ namespace RenovoWorkshop.Infrastructure.Migrations
                         .IsRequired()
                         .HasColumnType("text");
 
+                    b.Property<string>("Photos")
+                        .IsRequired()
+                        .HasColumnType("text");
+
                     b.Property<string>("ProblemReported")
                         .IsRequired()
                         .HasColumnType("text");
 
                     b.Property<string>("ResponsibleUser")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("ServiceType")
                         .IsRequired()
                         .HasColumnType("text");
 
@@ -303,6 +324,9 @@ namespace RenovoWorkshop.Infrastructure.Migrations
                         .IsRequired()
                         .HasColumnType("text");
 
+                    b.Property<bool>("StockDeducted")
+                        .HasColumnType("boolean");
+
                     b.Property<decimal>("Value")
                         .HasPrecision(12, 2)
                         .HasColumnType("numeric(12,2)");
@@ -311,6 +335,8 @@ namespace RenovoWorkshop.Infrastructure.Migrations
                         .HasColumnType("uuid");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("AssignedUserId");
 
                     b.HasIndex("CustomerId");
 
@@ -352,6 +378,63 @@ namespace RenovoWorkshop.Infrastructure.Migrations
                     b.ToTable("ServiceOrderHistories");
                 });
 
+            modelBuilder.Entity("RenovoWorkshop.Domain.Entities.ServiceOrderItem", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("InventoryItemId")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("Quantity")
+                        .HasColumnType("integer");
+
+                    b.Property<Guid>("ServiceOrderId")
+                        .HasColumnType("uuid");
+
+                    b.Property<decimal>("UnitValue")
+                        .HasPrecision(12, 2)
+                        .HasColumnType("numeric(12,2)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("InventoryItemId");
+
+                    b.HasIndex("ServiceOrderId");
+
+                    b.ToTable("ServiceOrderItems");
+                });
+
+            modelBuilder.Entity("RenovoWorkshop.Domain.Entities.ServiceOrderPhoto", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("ServiceOrderId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("UploadedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("UploadedBy")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<string>("Url")
+                        .IsRequired()
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ServiceOrderId");
+
+                    b.ToTable("ServiceOrderPhotos");
+                });
+
             modelBuilder.Entity("RenovoWorkshop.Domain.Entities.Supplier", b =>
                 {
                     b.Property<Guid>("Id")
@@ -385,6 +468,62 @@ namespace RenovoWorkshop.Infrastructure.Migrations
                     b.HasKey("Id");
 
                     b.ToTable("Suppliers");
+                });
+
+            modelBuilder.Entity("RenovoWorkshop.Domain.Entities.TowServiceDetails", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("AssistanceCompany")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("ClaimNumber")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("DeliveredByDocument")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("DeliveredByName")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("DeliveryDestination")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("InsuranceCompany")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("PickupLocation")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("ReceivedByDocument")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("ReceivedByName")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<Guid>("ServiceOrderId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("TowUnit")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ServiceOrderId");
+
+                    b.ToTable("TowServiceDetails");
                 });
 
             modelBuilder.Entity("RenovoWorkshop.Domain.Entities.Vehicle", b =>
@@ -457,6 +596,9 @@ namespace RenovoWorkshop.Infrastructure.Migrations
                     b.Property<bool>("AirConditioning")
                         .HasColumnType("boolean");
 
+                    b.Property<bool>("Antenna")
+                        .HasColumnType("boolean");
+
                     b.Property<DateTime>("CheckedAt")
                         .HasColumnType("timestamp with time zone");
 
@@ -464,10 +606,20 @@ namespace RenovoWorkshop.Infrastructure.Migrations
                         .IsRequired()
                         .HasColumnType("text");
 
+                    b.Property<string>("DamagePoints")
+                        .IsRequired()
+                        .HasColumnType("text");
+
                     b.Property<bool>("Dashboard")
                         .HasColumnType("boolean");
 
                     b.Property<bool>("Documents")
+                        .HasColumnType("boolean");
+
+                    b.Property<bool>("FloorMat")
+                        .HasColumnType("boolean");
+
+                    b.Property<bool>("FogLights")
                         .HasColumnType("boolean");
 
                     b.Property<string>("FuelLevel")
@@ -482,6 +634,12 @@ namespace RenovoWorkshop.Infrastructure.Migrations
                         .HasColumnType("text");
 
                     b.Property<bool>("Headlights")
+                        .HasColumnType("boolean");
+
+                    b.Property<bool>("Hubcaps")
+                        .HasColumnType("boolean");
+
+                    b.Property<bool>("IgnitionKeys")
                         .HasColumnType("boolean");
 
                     b.Property<bool>("Jack")
@@ -508,6 +666,9 @@ namespace RenovoWorkshop.Infrastructure.Migrations
                         .IsRequired()
                         .HasColumnType("text");
 
+                    b.Property<bool>("Radio")
+                        .HasColumnType("boolean");
+
                     b.Property<string>("ResponsibleUser")
                         .IsRequired()
                         .HasMaxLength(200)
@@ -527,6 +688,10 @@ namespace RenovoWorkshop.Infrastructure.Migrations
 
                     b.Property<bool>("SpareTire")
                         .HasColumnType("boolean");
+
+                    b.Property<string>("SteeringFluidLevel")
+                        .IsRequired()
+                        .HasColumnType("text");
 
                     b.Property<bool>("Taillights")
                         .HasColumnType("boolean");
@@ -548,6 +713,9 @@ namespace RenovoWorkshop.Infrastructure.Migrations
                     b.Property<string>("VisualDamage")
                         .IsRequired()
                         .HasColumnType("text");
+
+                    b.Property<bool>("WheelWrench")
+                        .HasColumnType("boolean");
 
                     b.Property<bool>("Windows")
                         .HasColumnType("boolean");
@@ -579,6 +747,13 @@ namespace RenovoWorkshop.Infrastructure.Migrations
                     b.Property<string>("DeliveryStatus")
                         .IsRequired()
                         .HasColumnType("text");
+
+                    b.Property<string>("Direction")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasDefaultValue("Outbound");
 
                     b.Property<string>("Error")
                         .HasColumnType("text");
@@ -613,6 +788,39 @@ namespace RenovoWorkshop.Infrastructure.Migrations
                     b.ToTable("WhatsAppMessageLogs");
                 });
 
+            modelBuilder.Entity("RenovoWorkshop.Domain.Entities.WorkshopSettings", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Address")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("Email")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<string>("Logo")
+                        .HasColumnType("text");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<string>("Phone")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("character varying(30)");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("WorkshopSettings");
+                });
+
             modelBuilder.Entity("RenovoWorkshop.Domain.Entities.PurchaseOrder", b =>
                 {
                     b.HasOne("RenovoWorkshop.Domain.Entities.Supplier", "Supplier")
@@ -645,6 +853,11 @@ namespace RenovoWorkshop.Infrastructure.Migrations
 
             modelBuilder.Entity("RenovoWorkshop.Domain.Entities.ServiceOrder", b =>
                 {
+                    b.HasOne("RenovoWorkshop.Domain.Entities.ApplicationUser", "AssignedUser")
+                        .WithMany()
+                        .HasForeignKey("AssignedUserId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
                     b.HasOne("RenovoWorkshop.Domain.Entities.Customer", "Customer")
                         .WithMany("ServiceOrders")
                         .HasForeignKey("CustomerId")
@@ -657,6 +870,8 @@ namespace RenovoWorkshop.Infrastructure.Migrations
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
+                    b.Navigation("AssignedUser");
+
                     b.Navigation("Customer");
 
                     b.Navigation("Vehicle");
@@ -666,6 +881,47 @@ namespace RenovoWorkshop.Infrastructure.Migrations
                 {
                     b.HasOne("RenovoWorkshop.Domain.Entities.ServiceOrder", "ServiceOrder")
                         .WithMany("History")
+                        .HasForeignKey("ServiceOrderId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("ServiceOrder");
+                });
+
+            modelBuilder.Entity("RenovoWorkshop.Domain.Entities.ServiceOrderItem", b =>
+                {
+                    b.HasOne("RenovoWorkshop.Domain.Entities.InventoryItem", "InventoryItem")
+                        .WithMany()
+                        .HasForeignKey("InventoryItemId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("RenovoWorkshop.Domain.Entities.ServiceOrder", "ServiceOrder")
+                        .WithMany("Items")
+                        .HasForeignKey("ServiceOrderId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("InventoryItem");
+
+                    b.Navigation("ServiceOrder");
+                });
+
+            modelBuilder.Entity("RenovoWorkshop.Domain.Entities.ServiceOrderPhoto", b =>
+                {
+                    b.HasOne("RenovoWorkshop.Domain.Entities.ServiceOrder", "ServiceOrder")
+                        .WithMany()
+                        .HasForeignKey("ServiceOrderId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("ServiceOrder");
+                });
+
+            modelBuilder.Entity("RenovoWorkshop.Domain.Entities.TowServiceDetails", b =>
+                {
+                    b.HasOne("RenovoWorkshop.Domain.Entities.ServiceOrder", "ServiceOrder")
+                        .WithMany()
                         .HasForeignKey("ServiceOrderId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
@@ -718,6 +974,8 @@ namespace RenovoWorkshop.Infrastructure.Migrations
             modelBuilder.Entity("RenovoWorkshop.Domain.Entities.ServiceOrder", b =>
                 {
                     b.Navigation("History");
+
+                    b.Navigation("Items");
                 });
 
             modelBuilder.Entity("RenovoWorkshop.Domain.Entities.Supplier", b =>

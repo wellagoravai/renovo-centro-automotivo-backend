@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.AspNetCore.Authorization;
 using RenovoWorkshop.Application.Interfaces;
@@ -12,6 +13,13 @@ namespace RenovoWorkshop.Api.Controllers;
 [Route("api/[controller]")]
 public class AuthController : ControllerBase
 {
+    // Depois de MaxFailedAttempts tentativas erradas seguidas pro MESMO usuário, a conta
+    // fica bloqueada por LockoutDuration — isso é por conta (independe de IP), e existe
+    // junto com o rate limiter por IP em Program.cs (que trava a velocidade das tentativas
+    // de qualquer origem); um cobre o outro contra força bruta lenta e distribuída.
+    private const int MaxFailedAttempts = 5;
+    private static readonly TimeSpan LockoutDuration = TimeSpan.FromMinutes(15);
+
     private readonly RenovoWorkshopDbContext _context;
     private readonly IAuthService _authService;
 
@@ -21,12 +29,45 @@ public class AuthController : ControllerBase
         _authService = authService;
     }
 
+    [EnableRateLimiting("login")]
     [HttpPost("login")]
     public async Task<IActionResult> Login([FromBody] LoginRequest request)
     {
         var user = await _context.Users.FirstOrDefaultAsync(u => u.UserName == request.Username && u.IsActive);
+
+        if (user is not null && user.LockedOutUntil is { } lockedUntil && lockedUntil > DateTime.UtcNow)
+        {
+            var minutesLeft = Math.Max(1, (int)Math.Ceiling((lockedUntil - DateTime.UtcNow).TotalMinutes));
+            return StatusCode(StatusCodes.Status423Locked, new
+            {
+                message = $"Conta temporariamente bloqueada por excesso de tentativas. Tente novamente em {minutesLeft} minuto(s)."
+            });
+        }
+
         if (user is null || !_authService.VerifyPassword(request.Password, user.PasswordHash))
+        {
+            if (user is not null)
+            {
+                user.FailedLoginAttempts++;
+                if (user.FailedLoginAttempts >= MaxFailedAttempts)
+                {
+                    user.LockedOutUntil = DateTime.UtcNow.Add(LockoutDuration);
+                    user.FailedLoginAttempts = 0;
+                }
+                await _context.SaveChangesAsync();
+            }
+
+            // Mesma mensagem genérica tanto pra usuário inexistente quanto pra senha errada —
+            // não dá pra um invasor descobrir por tentativa se um username existe ou não.
             return Unauthorized(new { message = "Credenciais inválidas." });
+        }
+
+        if (user.FailedLoginAttempts > 0 || user.LockedOutUntil.HasValue)
+        {
+            user.FailedLoginAttempts = 0;
+            user.LockedOutUntil = null;
+            await _context.SaveChangesAsync();
+        }
 
         var token = _authService.GenerateJwtToken(user.Id, user.UserName, user.Role);
         var permissions = UserPermissions.ForRole(user.Role);
