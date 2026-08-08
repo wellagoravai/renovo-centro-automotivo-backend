@@ -25,4 +25,12 @@ public class FakeWhatsAppService : IWhatsAppService
         RawMessagesSent.Add((phone, text));
         return Task.FromResult(new WhatsAppSendResult(true, "ok"));
     }
+
+    public int QuoteDocumentsSent { get; private set; }
+
+    public Task<WhatsAppSendResult> SendQuoteDocumentAsync(ServiceOrder order, Customer customer, CancellationToken cancellationToken = default)
+    {
+        QuoteDocumentsSent++;
+        return Task.FromResult(new WhatsAppSendResult(true, "ok"));
+    }
 }

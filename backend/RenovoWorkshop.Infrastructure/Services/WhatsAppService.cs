@@ -11,12 +11,14 @@ public class WhatsAppService : IWhatsAppService
     private readonly RenovoWorkshopDbContext? _context;
     private readonly IConfiguration? _configuration;
     private readonly EvolutionApiClient? _evolutionClient;
+    private readonly IQuoteDocumentService? _quoteDocumentService;
 
-    public WhatsAppService(RenovoWorkshopDbContext? context, IConfiguration? configuration, EvolutionApiClient? evolutionClient = null)
+    public WhatsAppService(RenovoWorkshopDbContext? context, IConfiguration? configuration, EvolutionApiClient? evolutionClient = null, IQuoteDocumentService? quoteDocumentService = null)
     {
         _context = context;
         _configuration = configuration;
         _evolutionClient = evolutionClient;
+        _quoteDocumentService = quoteDocumentService;
     }
 
     public string BuildStatusMessage(ServiceOrder order, Customer customer, string previousStatus, string newStatus, string? notes = null)
@@ -165,6 +167,59 @@ public class WhatsAppService : IWhatsAppService
         catch (Exception ex)
         {
             await LogMessageAsync(serviceOrderId, customerId, recipient, statusLabel, "Failed", ex.Message, mediaUrl, "Outbound", cancellationToken);
+        }
+    }
+
+    // Anexa o PDF do orçamento (mesmo layout do botão "Gerar Orçamento em PDF" no
+    // painel) como documento na conversa — complementa o texto de aprovação já
+    // enviado por SendStatusMessageAsync, não o substitui.
+    public async Task<WhatsAppSendResult> SendQuoteDocumentAsync(ServiceOrder order, Customer customer, CancellationToken cancellationToken = default)
+    {
+        var recipient = !string.IsNullOrWhiteSpace(customer.WhatsApp)
+            ? customer.WhatsApp
+            : customer.Phone;
+
+        if (string.IsNullOrWhiteSpace(recipient))
+        {
+            await LogMessageAsync(order.Id, customer.Id, string.Empty, order.Status, "Skipped", "Número de WhatsApp não informado.", "[PDF do orçamento]", "Outbound", cancellationToken);
+            return new WhatsAppSendResult(false, "Número de WhatsApp não informado.");
+        }
+
+        if (_quoteDocumentService is null)
+        {
+            await LogMessageAsync(order.Id, customer.Id, recipient, order.Status, "Failed", "Serviço de geração de PDF não disponível.", "[PDF do orçamento]", "Outbound", cancellationToken);
+            return new WhatsAppSendResult(false, "Serviço de geração de PDF não disponível.");
+        }
+
+        var fileName = $"Orcamento-{order.Number}.pdf";
+
+        var isEnabled = _configuration?["WhatsApp:IsEnabled"]?.Equals("true", StringComparison.OrdinalIgnoreCase) == true;
+        var baseUrl = _configuration?["WhatsApp:Evolution:BaseUrl"];
+        var apiKey = _configuration?["WhatsApp:Evolution:ApiKey"];
+        var instance = _configuration?["WhatsApp:Evolution:Instance"];
+
+        if (!isEnabled || string.IsNullOrWhiteSpace(baseUrl) || string.IsNullOrWhiteSpace(instance) || _evolutionClient is null)
+        {
+            await LogMessageAsync(order.Id, customer.Id, recipient, order.Status, "Queued", "Integração desabilitada ou Evolution API não configurada.", $"[PDF] {fileName}", "Outbound", cancellationToken);
+            return new WhatsAppSendResult(true, "PDF pendente de envio.");
+        }
+
+        try
+        {
+            var pdfBytes = _quoteDocumentService.GenerateQuotePdf(order, customer);
+            var base64Content = Convert.ToBase64String(pdfBytes);
+
+            var result = await _evolutionClient.SendDocumentAsync(baseUrl, apiKey ?? string.Empty, instance, NormalizePhone(recipient), base64Content, fileName, "application/pdf", caption: null, cancellationToken);
+            await LogMessageAsync(order.Id, customer.Id, recipient, order.Status, result.Success ? "Sent" : "Failed", result.Error, $"[PDF] {fileName}", "Outbound", cancellationToken, result.MessageId);
+
+            return result.Success
+                ? new WhatsAppSendResult(true, "PDF do orçamento enviado.", ProviderMessageId: result.MessageId)
+                : new WhatsAppSendResult(false, "Falha ao enviar PDF do orçamento.", Error: result.Error);
+        }
+        catch (Exception ex)
+        {
+            await LogMessageAsync(order.Id, customer.Id, recipient, order.Status, "Failed", ex.Message, $"[PDF] {fileName}", "Outbound", cancellationToken);
+            return new WhatsAppSendResult(false, "Erro ao gerar ou enviar o PDF do orçamento.", Error: ex.Message);
         }
     }
 

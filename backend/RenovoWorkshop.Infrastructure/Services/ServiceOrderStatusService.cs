@@ -92,6 +92,14 @@ public class ServiceOrderStatusService : IServiceOrderStatusService
             }
 
             await _whatsAppService.SendStatusMessageAsync(order, customer, previousStatus, newStatus, notes, photoUrls, cancellationToken);
+
+            // Além do resumo em texto acima, manda o orçamento formatado em PDF como
+            // documento anexo — mesmo arquivo que o botão "Gerar Orçamento em PDF" do
+            // painel gera, pra quem prefere abrir/imprimir em vez de ler o texto corrido.
+            if (newStatus == "Aguardando aprovação")
+            {
+                await _whatsAppService.SendQuoteDocumentAsync(order, customer, cancellationToken);
+            }
         }
 
         await _notificationService.NotifyStatusUpdateAsync(order.Id, newStatus, changedBy, order.AssignedUserId, cancellationToken);

@@ -53,6 +53,32 @@ public class ServiceOrderStatusServiceTests
     }
 
     [Fact]
+    public async Task ChangeStatusAsync_ShouldSendQuotePdf_WhenNewStatusIsAguardandoAprovacao()
+    {
+        using var context = CreateContext();
+        var order = SeedOrder(context, "Em diagnóstico");
+        var whatsApp = new FakeWhatsAppService();
+        var service = new ServiceOrderStatusService(context, whatsApp, new FakeNotificationService());
+
+        await service.ChangeStatusAsync(order.Id, "Aguardando aprovação", null, "Equipe");
+
+        Assert.Equal(1, whatsApp.QuoteDocumentsSent);
+    }
+
+    [Fact]
+    public async Task ChangeStatusAsync_ShouldNotSendQuotePdf_ForOtherTransitions()
+    {
+        using var context = CreateContext();
+        var order = SeedOrder(context, "Aguardando aprovação");
+        var whatsApp = new FakeWhatsAppService();
+        var service = new ServiceOrderStatusService(context, whatsApp, new FakeNotificationService());
+
+        await service.ChangeStatusAsync(order.Id, "Aprovado", null, "Equipe");
+
+        Assert.Equal(0, whatsApp.QuoteDocumentsSent);
+    }
+
+    [Fact]
     public async Task ChangeStatusAsync_ShouldBeNoOp_WhenStatusIsUnchanged()
     {
         using var context = CreateContext();

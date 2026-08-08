@@ -19,13 +19,33 @@ public class ServiceOrdersController : ControllerBase
     private readonly IMapper _mapper;
     private readonly IServiceOrderStatusService _statusService;
     private readonly IPhotoStorageService _photoStorageService;
+    private readonly IQuoteDocumentService _quoteDocumentService;
 
-    public ServiceOrdersController(RenovoWorkshopDbContext context, IMapper mapper, IServiceOrderStatusService statusService, IPhotoStorageService photoStorageService)
+    public ServiceOrdersController(RenovoWorkshopDbContext context, IMapper mapper, IServiceOrderStatusService statusService, IPhotoStorageService photoStorageService, IQuoteDocumentService quoteDocumentService)
     {
         _context = context;
         _mapper = mapper;
         _statusService = statusService;
         _photoStorageService = photoStorageService;
+        _quoteDocumentService = quoteDocumentService;
+    }
+
+    // Mesmo PDF que sai automaticamente no WhatsApp quando a OS entra em "Aguardando
+    // aprovação" — aqui pra gerar sob demanda (inclusive antes desse status, ou pra
+    // reimprimir) e cobrir o caso do cliente sem WhatsApp, que recebe manualmente.
+    [HttpGet("{id:guid}/quote-pdf")]
+    public async Task<IActionResult> GetQuotePdf(Guid id)
+    {
+        var order = await _context.ServiceOrders
+            .Include(o => o.Customer)
+            .Include(o => o.Vehicle)
+            .Include(o => o.Items).ThenInclude(i => i.InventoryItem)
+            .FirstOrDefaultAsync(o => o.Id == id);
+
+        if (order is null) return NotFound();
+
+        var pdfBytes = _quoteDocumentService.GenerateQuotePdf(order, order.Customer);
+        return File(pdfBytes, "application/pdf", $"Orcamento-{order.Number}.pdf");
     }
 
     [HttpGet]
