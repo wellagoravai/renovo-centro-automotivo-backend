@@ -14,6 +14,7 @@ import Products from './pages/Products';
 import Portal from './pages/Portal';
 import Dashboard from './pages/DashboardEnhanced';
 import ServiceOrders from './pages/ServiceOrders';
+import Customers from './pages/Customers';
 import Inventory from './pages/Inventory';
 import UsersManagement from './pages/UsersManagement';
 import NewServiceOrder from './pages/NewServiceOrder';
@@ -71,6 +72,7 @@ const AppRoutes: React.FC = () => {
       >
       <Route path="dashboard" element={<Dashboard />} />
         <Route path="new-service-order" element={<NewServiceOrderMobile />} />
+        <Route path="customers" element={<Customers />} />
         <Route path="service-orders" element={<ServiceOrders />} />
         <Route path="service-orders/:id" element={<ServiceOrderDetails />} />
         <Route path="inventory" element={<Inventory />} />
