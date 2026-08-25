@@ -78,8 +78,8 @@ builder.Services.AddCors(options =>
         // SetIsOriginAllowed com checagem de prefixo permite testar o app a partir de
         // um celular na mesma rede Wi-Fi durante o desenvolvimento.
         policy.SetIsOriginAllowed(origin =>
-                  origin is "http://localhost:3000" or "http://localhost:3001" or "http://localhost:5173"
-                            or "http://localhost:8080" or "http://127.0.0.1:3000"
+                  origin.StartsWith("http://localhost:", StringComparison.OrdinalIgnoreCase)
+                  || origin.StartsWith("http://127.0.0.1:", StringComparison.OrdinalIgnoreCase)
                   || origin.StartsWith("http://192.168.", StringComparison.OrdinalIgnoreCase)
                   || origin.StartsWith("http://10.0.", StringComparison.OrdinalIgnoreCase))
               .AllowAnyHeader()
