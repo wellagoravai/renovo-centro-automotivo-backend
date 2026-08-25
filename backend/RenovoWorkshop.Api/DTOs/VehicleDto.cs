@@ -50,3 +50,9 @@ public class UpdateVehicleDto
     public string Renavam { get; set; } = string.Empty;
     public string? Photos { get; set; }
 }
+
+public class VehiclePlateLookupDto
+{
+    public VehicleDto? Vehicle { get; set; }
+    public CustomerDto? Customer { get; set; }
+}

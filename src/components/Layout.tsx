@@ -16,6 +16,7 @@ const Layout: React.FC = () => {
   const menuItems = [
     { path: '/dashboard', label: 'Dashboard', icon: '🏠', permission: 'dashboard.view' },
     { path: '/new-service-order', label: 'Nova Ordem', icon: '➕', permission: 'orders.write' },
+    { path: '/customers', label: 'Clientes', icon: '👤', permission: 'customers.read' },
     { path: '/service-orders', label: 'Ordens de Serviço', icon: '📋', permission: 'orders.read' },
     { path: '/inventory', label: 'Estoque', icon: '📦', permission: 'inventory.read' },
     { path: '/users', label: 'Funcionários', icon: '👥', permission: 'users.manage' },

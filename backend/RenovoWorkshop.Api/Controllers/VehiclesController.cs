@@ -60,6 +60,25 @@ public class VehiclesController : ControllerBase
         return Ok(vehicleDto);
     }
 
+    [HttpGet("by-plate/{plate}")]
+    public async Task<IActionResult> GetByPlate(string plate)
+    {
+        if (string.IsNullOrWhiteSpace(plate)) return BadRequest(new { message = "Placa inválida." });
+
+        var normalizedPlate = plate.Trim().ToUpperInvariant();
+        var vehicle = await _context.Vehicles
+            .Include(v => v.Customer)
+            .Include(v => v.ServiceOrders)
+            .FirstOrDefaultAsync(v => v.Plate.ToUpper() == normalizedPlate);
+
+        if (vehicle is null) return NotFound();
+
+        var vehicleDto = _mapper.Map<VehicleDto>(vehicle);
+        var customerDto = _mapper.Map<CustomerDto>(vehicle.Customer);
+
+        return Ok(new VehiclePlateLookupDto { Vehicle = vehicleDto, Customer = customerDto });
+    }
+
     [HttpPost]
     [Authorize(Policy = "CanManageVehicles")]
     public async Task<IActionResult> Create([FromBody] CreateVehicleDto createVehicleDto)
