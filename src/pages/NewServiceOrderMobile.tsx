@@ -60,6 +60,8 @@ const NewServiceOrderMobile: React.FC = () => {
   });
 
   const [loading, setLoading] = useState(false);
+  const [lookupMessage, setLookupMessage] = useState('');
+  const [lookupType, setLookupType] = useState<'success' | 'notfound' | ''>('');
 
   const handleCustomerChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     setCustomer({ ...customer, [e.target.name]: e.target.value });
@@ -94,6 +96,66 @@ const NewServiceOrderMobile: React.FC = () => {
       ...prev,
       photos: prev.photos.filter((_, i) => i !== index)
     }));
+  };
+
+  const handlePlateLookup = async () => {
+    const plate = vehicle.plate.trim().toUpperCase();
+    if (plate.length < 7) {
+      setLookupMessage('');
+      setLookupType('');
+      return;
+    }
+
+    try {
+      const response = await api.get(`/Vehicles/by-plate/${encodeURIComponent(plate)}`);
+
+      if (response.ok) {
+        const data = await response.json();
+        const foundVehicle = data.vehicle;
+        const foundCustomer = data.customer;
+
+        if (foundCustomer) {
+          setCustomer({
+            name: foundCustomer.name || '',
+            document: foundCustomer.document || '',
+            whatsapp: foundCustomer.whatsApp || '',
+            phone: foundCustomer.phone || '',
+            email: foundCustomer.email || '',
+            address: foundCustomer.address || '',
+          });
+        }
+
+        if (foundVehicle) {
+          setVehicle(prev => ({
+            ...prev,
+            plate: foundVehicle.plate || plate,
+            brand: foundVehicle.brand || '',
+            model: foundVehicle.model || '',
+            year: foundVehicle.year ? String(foundVehicle.year) : '',
+            color: foundVehicle.color || '',
+            mileage: foundVehicle.mileage ? String(foundVehicle.mileage) : '',
+            fuel: foundVehicle.fuel || 'Flex',
+          }));
+        }
+
+        setLookupMessage(
+          foundCustomer
+            ? `Cliente encontrado: ${foundCustomer.name}. Dados preenchidos.`
+            : 'Veículo encontrado. Preencha os dados do cliente.'
+        );
+        setLookupType('success');
+      } else if (response.status === 404) {
+        setLookupMessage('Placa não cadastrada. Preencha os dados do cliente e do veículo.');
+        setLookupType('notfound');
+      } else {
+        setLookupMessage('');
+        setLookupType('');
+      }
+    } catch (error) {
+      console.error('Erro ao consultar placa:', error);
+      setLookupMessage('');
+      setLookupType('');
+    }
   };
 
   const handleNext = () => {
@@ -234,9 +296,25 @@ const NewServiceOrderMobile: React.FC = () => {
           name="plate"
           value={vehicle.plate}
           onChange={handleVehicleChange}
+          onBlur={handlePlateLookup}
           placeholder="ABC-1234"
           required
         />
+        {lookupMessage && (
+          <div
+            className="plate-lookup-message"
+            style={{
+              marginTop: '8px',
+              padding: '8px 12px',
+              borderRadius: '6px',
+              fontSize: '13px',
+              color: lookupType === 'success' ? '#1a7f37' : '#b3261e',
+              backgroundColor: lookupType === 'success' ? '#e6f4ea' : '#fce8e6',
+            }}
+          >
+            {lookupMessage}
+          </div>
+        )}
       </div>
       <div className="form-group">
         <label>Marca *</label>
