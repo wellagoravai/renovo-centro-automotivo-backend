@@ -1,4 +1,7 @@
-const API_URL = 'http://localhost:5235/api';
+const configuredApiUrl = process.env.REACT_APP_API_URL?.replace(/\/$/, '');
+const API_URL = configuredApiUrl
+  ? (configuredApiUrl.endsWith('/api') ? configuredApiUrl : `${configuredApiUrl}/api`)
+  : 'http://localhost:5235/api';
 
 export const api = {
   async get(url: string) {

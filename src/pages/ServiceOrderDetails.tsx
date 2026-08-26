@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
+import { api } from '../services/api';
 
 interface ServiceOrder {
   id: string;
@@ -17,11 +18,24 @@ interface ServiceOrder {
   finalDate?: string;
 }
 
+interface Customer {
+  id: string;
+  name: string;
+  document: string;
+  phone: string;
+  whatsApp: string;
+  email: string;
+  address: string;
+  notes: string;
+}
+
 const ServiceOrderDetails: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState('dados');
   const [serviceOrder, setServiceOrder] = useState<ServiceOrder | null>(null);
+  const [customer, setCustomer] = useState<Customer | null>(null);
+  const [savingCustomer, setSavingCustomer] = useState(false);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -40,11 +54,41 @@ const ServiceOrderDetails: React.FC = () => {
       if (response.ok) {
         const data = await response.json();
         setServiceOrder(data);
+
+        const customerResponse = await api.get(`/Customers/${data.customerId}`);
+        if (customerResponse.ok) {
+          setCustomer(await customerResponse.json());
+        }
       }
     } catch (error) {
       console.error('Erro ao carregar OS:', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleSaveCustomer = async () => {
+    if (!serviceOrder || !customer || !customer.name.trim()) {
+      alert('Informe o nome do cliente.');
+      return;
+    }
+
+    setSavingCustomer(true);
+    try {
+      const response = await api.put(`/Customers/${customer.id}`, customer);
+      if (!response.ok) {
+        throw new Error('Não foi possível salvar o cliente.');
+      }
+
+      const updatedCustomer = await response.json();
+      setCustomer(updatedCustomer);
+      setServiceOrder({ ...serviceOrder, customerName: updatedCustomer.name });
+      alert('Cliente salvo com sucesso!');
+    } catch (error) {
+      console.error('Erro ao salvar cliente:', error);
+      alert('Erro ao salvar cliente.');
+    } finally {
+      setSavingCustomer(false);
     }
   };
 
@@ -99,7 +143,21 @@ const ServiceOrderDetails: React.FC = () => {
       <div className="os-info-cards">
         <div className="info-card">
           <h3>Cliente</h3>
-          <p>{serviceOrder.customerName}</p>
+          {customer ? (
+            <>
+              <input
+                type="text"
+                value={customer.name}
+                onChange={(event) => setCustomer({ ...customer, name: event.target.value })}
+                aria-label="Nome do cliente"
+              />
+              <button className="btn-primary" onClick={handleSaveCustomer} disabled={savingCustomer}>
+                {savingCustomer ? 'Salvando...' : 'Salvar Cliente'}
+              </button>
+            </>
+          ) : (
+            <p>{serviceOrder.customerName}</p>
+          )}
         </div>
         <div className="info-card">
           <h3>Veículo</h3>
