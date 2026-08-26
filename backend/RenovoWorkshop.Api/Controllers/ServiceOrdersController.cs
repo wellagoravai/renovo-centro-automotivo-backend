@@ -280,9 +280,13 @@ public class ServiceOrdersController : ControllerBase
     [Authorize(Policy = "CanManageOrders")]
     public async Task<IActionResult> CreateWithCustomerVehicle([FromBody] CreateServiceOrderWithCustomerVehicleDto request)
     {
-        // Check if customer exists by document
-        var existingCustomer = await _context.Customers
-            .FirstOrDefaultAsync(c => c.Document == request.Customer.Document);
+        if (string.IsNullOrWhiteSpace(request.Customer.Name))
+            return BadRequest(new { message = "O nome do cliente é obrigatório." });
+
+        var document = request.Customer.Document.Trim();
+        var existingCustomer = string.IsNullOrWhiteSpace(document)
+            ? null
+            : await _context.Customers.FirstOrDefaultAsync(c => c.Document == document);
 
         Customer customer;
         if (existingCustomer is null)
@@ -291,8 +295,8 @@ public class ServiceOrdersController : ControllerBase
             customer = new Customer
             {
                 Id = Guid.NewGuid(),
-                Name = request.Customer.Name,
-                Document = request.Customer.Document,
+                Name = request.Customer.Name.Trim(),
+                Document = document,
                 WhatsApp = request.Customer.WhatsApp,
                 Phone = request.Customer.Phone,
                 Email = request.Customer.Email,
@@ -304,6 +308,11 @@ public class ServiceOrdersController : ControllerBase
         else
         {
             customer = existingCustomer;
+            customer.Name = request.Customer.Name.Trim();
+            customer.WhatsApp = request.Customer.WhatsApp;
+            customer.Phone = request.Customer.Phone;
+            customer.Email = request.Customer.Email;
+            customer.Address = request.Customer.Address;
         }
 
         // Check if vehicle exists by plate
@@ -369,6 +378,9 @@ public class ServiceOrdersController : ControllerBase
             await UpsertTowDetailsAsync(order.Id, request.TowDetails);
 
         await _context.SaveChangesAsync();
+
+        await _context.Entry(order).Reference(o => o.Customer).LoadAsync();
+        await _context.Entry(order).Reference(o => o.Vehicle).LoadAsync();
 
         var orderDto = await MapToDtoAsync(order);
         return CreatedAtAction(nameof(GetById), new { id = order.Id }, orderDto);
