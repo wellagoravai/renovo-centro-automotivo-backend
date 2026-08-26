@@ -221,6 +221,30 @@ using (var scope = app.Services.CreateScope())
 // Precisa vir antes de qualquer middleware que use o IP do cliente (rate limiter, logs etc.).
 app.UseForwardedHeaders();
 
+app.Use(async (context, next) =>
+{
+    var path = context.Request.Path.Value ?? string.Empty;
+    var legacyApiPrefixes = new[]
+    {
+        "/Account", "/Auth", "/Checklists", "/Customers", "/Dashboard", "/Inventory",
+        "/PurchaseOrders", "/Reports", "/ServiceOrders", "/Settings", "/Suppliers",
+        "/Users", "/Vehicles", "/WhatsApp", "/reports", "/service-orders"
+    };
+
+    if (!context.Request.Path.StartsWithSegments("/api") &&
+        !context.Request.Path.StartsWithSegments("/hubs") &&
+        legacyApiPrefixes.Any(prefix => path.Equals(prefix, StringComparison.OrdinalIgnoreCase) ||
+            path.StartsWith(prefix + "/", StringComparison.OrdinalIgnoreCase)))
+    {
+        var apiPath = path.Equals("/ServiceOrders", StringComparison.OrdinalIgnoreCase)
+            ? "/api/service-orders"
+            : $"/api{path}";
+        context.Request.Path = apiPath;
+    }
+
+    await next();
+});
+
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
