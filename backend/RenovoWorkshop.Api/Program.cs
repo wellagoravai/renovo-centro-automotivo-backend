@@ -72,6 +72,20 @@ builder.Services.AddDbContext<RenovoWorkshopDbContext>(options =>
 
 builder.Services.AddCors(options =>
 {
+    var defaultProductionOrigins = new[]
+    {
+        "https://renovocentroautomotivo.com.br",
+        "https://www.renovocentroautomotivo.com.br",
+        "https://renovo-centro-automotivo-website.vercel.app"
+    };
+
+    var configuredOrigins = (builder.Configuration["Cors:AllowedOrigins"] ?? string.Empty)
+        .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+
+    var allowedProductionOrigins = configuredOrigins.Length > 0
+        ? configuredOrigins
+        : defaultProductionOrigins;
+
     options.AddPolicy("AllowLocalhost", policy =>
     {
         // WithOrigins faz match exato — "http://192.168.*.*" nunca funcionou de fato.
@@ -89,8 +103,10 @@ builder.Services.AddCors(options =>
 
     options.AddPolicy("AllowProduction", policy =>
     {
-        var allowedOrigins = builder.Configuration["Cors:AllowedOrigins"]?.Split(',') ?? Array.Empty<string>();
-        policy.WithOrigins(allowedOrigins)
+        policy.SetIsOriginAllowed(origin =>
+                  allowedProductionOrigins.Any(allowed => string.Equals(origin, allowed, StringComparison.OrdinalIgnoreCase))
+                  || origin.EndsWith(".vercel.app", StringComparison.OrdinalIgnoreCase)
+                  || origin.EndsWith(".netlify.app", StringComparison.OrdinalIgnoreCase))
               .AllowAnyHeader()
               .AllowAnyMethod()
               .AllowCredentials();
