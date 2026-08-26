@@ -220,6 +220,7 @@ using (var scope = app.Services.CreateScope())
 
 // Precisa vir antes de qualquer middleware que use o IP do cliente (rate limiter, logs etc.).
 app.UseForwardedHeaders();
+app.UseRouting();
 
 app.Use(async (context, next) =>
 {
