@@ -111,6 +111,20 @@ public class UpdateServiceOrderDto
     public string Photos { get; set; } = string.Empty;
     public Guid? AssignedUserId { get; set; }
     public TowServiceDetailsDto? TowDetails { get; set; }
+
+    // Campos do check-in inicial: opcionais e só aplicados quando enviados (null = não mexe),
+    // ao contrário dos campos acima que sempre sobrescrevem — ver ServiceOrdersController.Update.
+    // ResponsibleUser/ProblemReported vivem na própria ServiceOrder; os demais são de
+    // Customer/Vehicle, entidades compartilhadas por outras OS do mesmo cliente/veículo.
+    public string? ResponsibleUser { get; set; }
+    public string? ProblemReported { get; set; }
+    public string? CustomerName { get; set; }
+    public string? VehiclePlate { get; set; }
+    public string? VehicleBrand { get; set; }
+    public string? VehicleModel { get; set; }
+    public string? VehicleColor { get; set; }
+    public int? VehicleYear { get; set; }
+    public int? VehicleMileage { get; set; }
 }
 
 public class ServiceOrderItemDto

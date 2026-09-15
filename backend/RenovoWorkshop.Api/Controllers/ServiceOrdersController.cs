@@ -52,7 +52,7 @@ public class ServiceOrdersController : ControllerBase
     }
 
     [HttpGet]
-    public async Task<IActionResult> GetAll([FromQuery] string? status = null, [FromQuery] string? search = null, [FromQuery] Guid? assignedUserId = null, [FromQuery] string? serviceType = null)
+    public async Task<IActionResult> GetAll([FromQuery] string? status = null, [FromQuery] string? search = null, [FromQuery] Guid? assignedUserId = null, [FromQuery] string? serviceType = null, [FromQuery] string? responsibleUser = null)
     {
         var query = _context.ServiceOrders
             .Include(o => o.Customer)
@@ -75,6 +75,12 @@ public class ServiceOrdersController : ControllerBase
         {
             var term = search.Trim();
             query = query.Where(o => o.Number.Contains(term) || o.Customer.Name.Contains(term) || o.Vehicle.Plate.Contains(term));
+        }
+
+        if (!string.IsNullOrWhiteSpace(responsibleUser))
+        {
+            var term = responsibleUser.Trim();
+            query = query.Where(o => o.ResponsibleUser.Contains(term));
         }
 
         var orders = await query.OrderByDescending(o => o.EntryDate).ToListAsync();
@@ -162,6 +168,21 @@ public class ServiceOrdersController : ControllerBase
         if (order is null) return NotFound();
 
         _mapper.Map(updateDto, order);
+
+        // Campos de check-in: só sobrescreve quando o cliente enviou o campo — evita que
+        // um PUT parcial (ex.: só diagnóstico) apague responsável, problema relatado ou
+        // dados do cliente/veículo por omissão. Cliente e Veículo são entidades
+        // compartilhadas por outras OS, então a edição aqui reflete nelas também.
+        if (updateDto.ResponsibleUser is not null) order.ResponsibleUser = updateDto.ResponsibleUser;
+        if (updateDto.ProblemReported is not null) order.ProblemReported = updateDto.ProblemReported;
+        if (updateDto.CustomerName is not null) order.Customer.Name = updateDto.CustomerName;
+        if (updateDto.VehiclePlate is not null) order.Vehicle.Plate = updateDto.VehiclePlate;
+        if (updateDto.VehicleBrand is not null) order.Vehicle.Brand = updateDto.VehicleBrand;
+        if (updateDto.VehicleModel is not null) order.Vehicle.Model = updateDto.VehicleModel;
+        if (updateDto.VehicleColor is not null) order.Vehicle.Color = updateDto.VehicleColor;
+        if (updateDto.VehicleYear.HasValue) order.Vehicle.Year = updateDto.VehicleYear.Value;
+        if (updateDto.VehicleMileage.HasValue) order.Vehicle.Mileage = updateDto.VehicleMileage.Value;
+
         RecalculateValue(order);
 
         if (updateDto.TowDetails is not null)

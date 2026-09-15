@@ -48,7 +48,12 @@ public class AutoMapperProfile : Profile
             .ForMember(dest => dest.EntryDate, opt => opt.Ignore());
         CreateMap<UpdateServiceOrderStatusDto, ServiceOrder>()
             .ForAllMembers(opts => opts.Condition((src, dest, srcMember) => srcMember != null));
-        CreateMap<UpdateServiceOrderDto, ServiceOrder>();
+        // ResponsibleUser/ProblemReported têm o mesmo nome na ServiceOrder e seriam
+        // mapeados por convenção mesmo quando não enviados (virando null) — o controller
+        // já aplica os dois manualmente só quando presentes, então ficam ignorados aqui.
+        CreateMap<UpdateServiceOrderDto, ServiceOrder>()
+            .ForMember(dest => dest.ResponsibleUser, opt => opt.Ignore())
+            .ForMember(dest => dest.ProblemReported, opt => opt.Ignore());
 
         CreateMap<ServiceOrderItem, ServiceOrderItemDto>()
             .ForMember(dest => dest.ItemCode, opt => opt.MapFrom(src => src.InventoryItem.Code))
