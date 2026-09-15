@@ -8,9 +8,20 @@ interface ServiceOrder {
   number: string;
   status: string;
   customerName: string;
-  vehicleInfo: string;
+  vehiclePlate: string;
+  vehicleBrand: string;
+  vehicleModel: string;
   entryDate: string;
   problemReported: string;
+}
+
+interface DashboardNotification {
+  id: string;
+  title: string;
+  message: string;
+  customerId?: string;
+  serviceOrderId?: string;
+  createdAt: string;
 }
 
 const DashboardEnhanced: React.FC = () => {
@@ -23,6 +34,7 @@ const DashboardEnhanced: React.FC = () => {
   const [notes, setNotes] = useState('');
   const [updating, setUpdating] = useState(false);
   const [currentTime, setCurrentTime] = useState(new Date());
+  const [notifications, setNotifications] = useState<DashboardNotification[]>([]);
 
   const statusList = [
     'Recebido',
@@ -55,11 +67,21 @@ const DashboardEnhanced: React.FC = () => {
         const data = await response.json();
         setServiceOrders(data);
       }
+      const notificationsResponse = await api.get('/Dashboard/notifications?limit=10');
+      if (notificationsResponse.ok) {
+        setNotifications(await notificationsResponse.json());
+      }
     } catch (error) {
       console.error('Erro ao carregar dashboard:', error);
     } finally {
       setLoading(false);
     }
+  };
+
+  const openCustomerNotification = async (notification: DashboardNotification) => {
+    await api.patch(`/Dashboard/notifications/${notification.id}/read`, {});
+    setNotifications(current => current.filter(item => item.id !== notification.id));
+    navigate('/customers');
   };
 
   const handleUpdateStatus = async (e: React.FormEvent) => {
@@ -158,6 +180,25 @@ const DashboardEnhanced: React.FC = () => {
         </div>
       </div>
 
+      {notifications.length > 0 && (
+        <section className="dashboard-notifications" aria-label="Notificações pendentes">
+          <div className="dashboard-notifications-heading">
+            <h2>Cadastro pendente</h2>
+            <span>{notifications.length}</span>
+          </div>
+          {notifications.map(notification => (
+            <button
+              key={notification.id}
+              className="dashboard-notification"
+              onClick={() => openCustomerNotification(notification)}
+            >
+              <strong>{notification.title}</strong>
+              <span>{notification.message}</span>
+            </button>
+          ))}
+        </section>
+      )}
+
       {/* Métricas Principais */}
       <div className="metrics-container">
         <div className="metric-card total">
@@ -213,7 +254,8 @@ const DashboardEnhanced: React.FC = () => {
                       </span>
                     </div>
                     <div className="card-body-tv">
-                      <p className="vehicle-info-tv">🚗 {order.vehicleInfo}</p>
+                      <p className="vehicle-plate-tv">🔖 {order.vehiclePlate}</p>
+                      <p className="vehicle-info-tv">🚗 {order.vehicleBrand} {order.vehicleModel}</p>
                       <p className="customer-name-tv">👤 {order.customerName}</p>
                       <p className="problem-info-tv">🔧 {order.problemReported || 'Não informado'}</p>
                     </div>

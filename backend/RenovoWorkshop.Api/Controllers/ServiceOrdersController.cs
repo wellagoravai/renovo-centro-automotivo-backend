@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using RenovoWorkshop.Api.DTOs;
+using RenovoWorkshop.Api.Helpers;
 using RenovoWorkshop.Application.Interfaces;
 using RenovoWorkshop.Domain.Constants;
 using RenovoWorkshop.Domain.Entities;
@@ -20,14 +21,16 @@ public class ServiceOrdersController : ControllerBase
     private readonly IServiceOrderStatusService _statusService;
     private readonly IPhotoStorageService _photoStorageService;
     private readonly IQuoteDocumentService _quoteDocumentService;
+    private readonly INotificationService _notificationService;
 
-    public ServiceOrdersController(RenovoWorkshopDbContext context, IMapper mapper, IServiceOrderStatusService statusService, IPhotoStorageService photoStorageService, IQuoteDocumentService quoteDocumentService)
+    public ServiceOrdersController(RenovoWorkshopDbContext context, IMapper mapper, IServiceOrderStatusService statusService, IPhotoStorageService photoStorageService, IQuoteDocumentService quoteDocumentService, INotificationService notificationService)
     {
         _context = context;
         _mapper = mapper;
         _statusService = statusService;
         _photoStorageService = photoStorageService;
         _quoteDocumentService = quoteDocumentService;
+        _notificationService = notificationService;
     }
 
     // Mesmo PDF que sai automaticamente no WhatsApp quando a OS entra em "Aguardando
@@ -283,12 +286,18 @@ public class ServiceOrdersController : ControllerBase
         if (string.IsNullOrWhiteSpace(request.Customer.Name))
             return BadRequest(new { message = "O nome do cliente é obrigatório." });
 
-        var document = request.Customer.Document.Trim();
+        var document = DocumentValidator.Normalize(request.Customer.Document);
+        if (!DocumentValidator.IsValidCpfOrCnpj(document))
+            return BadRequest(new { message = "CPF ou CNPJ do cliente é obrigatório e deve ser válido." });
+
+        request.Customer.Document = document;
+
         var existingCustomer = string.IsNullOrWhiteSpace(document)
             ? null
             : await _context.Customers.FirstOrDefaultAsync(c => c.Document == document);
 
         Customer customer;
+        var customerWasCreated = existingCustomer is null;
         if (existingCustomer is null)
         {
             // Create new customer
@@ -316,8 +325,9 @@ public class ServiceOrdersController : ControllerBase
         }
 
         // Check if vehicle exists by plate
+        var normalizedPlate = request.Vehicle.Plate.Trim().ToUpperInvariant();
         var existingVehicle = await _context.Vehicles
-            .FirstOrDefaultAsync(v => v.Plate == request.Vehicle.Plate);
+            .FirstOrDefaultAsync(v => v.Plate == normalizedPlate);
 
         Vehicle vehicle;
         if (existingVehicle is null)
@@ -326,7 +336,7 @@ public class ServiceOrdersController : ControllerBase
             vehicle = new Vehicle
             {
                 Id = Guid.NewGuid(),
-                Plate = request.Vehicle.Plate,
+                Plate = normalizedPlate,
                 Brand = request.Vehicle.Brand,
                 Model = request.Vehicle.Model,
                 Year = request.Vehicle.Year,
@@ -341,6 +351,8 @@ public class ServiceOrdersController : ControllerBase
         else
         {
             vehicle = existingVehicle;
+            if (vehicle.CustomerId != customer.Id)
+                return Conflict(new { message = "A placa informada já está vinculada a outro cliente. Confirme os dados antes de continuar." });
         }
 
         // Create service order
@@ -378,6 +390,22 @@ public class ServiceOrdersController : ControllerBase
             await UpsertTowDetailsAsync(order.Id, request.TowDetails);
 
         await _context.SaveChangesAsync();
+
+        if (customerWasCreated)
+        {
+            _context.DashboardNotifications.Add(new DashboardNotification
+            {
+                Id = Guid.NewGuid(),
+                Type = "customer-registration",
+                Title = "Cadastrar Cliente",
+                Message = $"Conclua o cadastro de {customer.Name}.",
+                CustomerId = customer.Id,
+                ServiceOrderId = order.Id,
+                CreatedAt = DateTime.UtcNow
+            });
+            await _context.SaveChangesAsync();
+            await _notificationService.NotifyCustomerRegistrationAsync(customer.Id, customer.Name, order.Id, order.Number, HttpContext.RequestAborted);
+        }
 
         await _context.Entry(order).Reference(o => o.Customer).LoadAsync();
         await _context.Entry(order).Reference(o => o.Vehicle).LoadAsync();

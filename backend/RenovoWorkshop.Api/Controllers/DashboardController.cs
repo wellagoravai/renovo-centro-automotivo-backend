@@ -89,6 +89,30 @@ public class DashboardController : ControllerBase
         });
     }
 
+    [HttpGet("notifications")]
+    public async Task<IActionResult> GetNotifications([FromQuery] int limit = 20)
+    {
+        var safeLimit = Math.Clamp(limit, 1, 100);
+        var notifications = await _context.DashboardNotifications
+            .Where(n => !n.IsRead)
+            .OrderByDescending(n => n.CreatedAt)
+            .Take(safeLimit)
+            .ToListAsync();
+
+        return Ok(notifications);
+    }
+
+    [HttpPatch("notifications/{id:guid}/read")]
+    public async Task<IActionResult> MarkNotificationAsRead(Guid id)
+    {
+        var notification = await _context.DashboardNotifications.FindAsync(id);
+        if (notification is null) return NotFound();
+
+        notification.IsRead = true;
+        await _context.SaveChangesAsync();
+        return NoContent();
+    }
+
     // Dashboard separado pra acompanhar veículos em transporte pelo guincho — os
     // status de guincho (ver ServiceOrderStatuses.Guincho) não têm nada a ver com
     // os buckets de oficina do GetDashboard() acima.

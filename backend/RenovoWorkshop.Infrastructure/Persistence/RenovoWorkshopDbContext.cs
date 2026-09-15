@@ -24,6 +24,7 @@ public class RenovoWorkshopDbContext : DbContext
     public DbSet<ServiceOrderPhoto> ServiceOrderPhotos => Set<ServiceOrderPhoto>();
     public DbSet<WorkshopSettings> WorkshopSettings => Set<WorkshopSettings>();
     public DbSet<TowServiceDetails> TowServiceDetails => Set<TowServiceDetails>();
+    public DbSet<DashboardNotification> DashboardNotifications => Set<DashboardNotification>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -176,6 +177,15 @@ public class RenovoWorkshopDbContext : DbContext
         {
             entity.HasKey(m => m.Id);
             entity.Property(m => m.Direction).IsRequired().HasMaxLength(20).HasDefaultValue("Outbound");
+        });
+
+        modelBuilder.Entity<DashboardNotification>(entity =>
+        {
+            entity.HasKey(n => n.Id);
+            entity.Property(n => n.Type).IsRequired().HasMaxLength(50);
+            entity.Property(n => n.Title).IsRequired().HasMaxLength(150);
+            entity.Property(n => n.Message).IsRequired().HasMaxLength(500);
+            entity.HasIndex(n => new { n.IsRead, n.CreatedAt });
         });
     }
 }

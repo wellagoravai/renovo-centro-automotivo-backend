@@ -75,7 +75,7 @@ public class PermissionEnforcementRegressionTests : IClassFixture<CustomWebAppli
         var response = await client.PostAsJsonAsync("/api/customers", new
         {
             name = $"Cliente {Guid.NewGuid():N}",
-            document = Guid.NewGuid().ToString("N")[..11],
+            document = "52998224725",
             phone = "(11) 90000-0000",
             whatsApp = "(11) 90000-0000",
             email = $"{Guid.NewGuid():N}@teste.com",

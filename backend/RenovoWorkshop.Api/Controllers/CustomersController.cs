@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using RenovoWorkshop.Api.DTOs;
+using RenovoWorkshop.Api.Helpers;
 using RenovoWorkshop.Domain.Entities;
 using RenovoWorkshop.Infrastructure.Persistence;
 
@@ -55,10 +56,47 @@ public class CustomersController : ControllerBase
         return Ok(customerDto);
     }
 
+    [HttpGet("lookup")]
+    public async Task<IActionResult> Lookup([FromQuery] string? document = null, [FromQuery] string? plate = null)
+    {
+        var normalizedDocument = string.IsNullOrWhiteSpace(document) ? null : DocumentValidator.Normalize(document);
+        var normalizedPlate = string.IsNullOrWhiteSpace(plate) ? null : plate.Trim().ToUpperInvariant();
+
+        if (normalizedDocument is null && normalizedPlate is null)
+            return BadRequest(new { message = "Informe CPF/CNPJ ou placa para a consulta." });
+
+        Customer? customer = normalizedDocument is not null
+            ? await _context.Customers.Include(c => c.Vehicles).FirstOrDefaultAsync(c => c.Document == normalizedDocument)
+            : null;
+        Vehicle? vehicle = null;
+
+        if (normalizedPlate is not null)
+        {
+            vehicle = await _context.Vehicles.Include(v => v.Customer)
+                .FirstOrDefaultAsync(v => v.Plate == normalizedPlate);
+            customer ??= vehicle?.Customer;
+        }
+
+        if (customer is null && vehicle is null)
+            return NotFound();
+
+        return Ok(new
+        {
+            customer = customer is null ? null : _mapper.Map<CustomerDto>(customer),
+            vehicle = vehicle is null ? null : _mapper.Map<VehicleDto>(vehicle)
+        });
+    }
+
     [HttpPost]
     [Authorize(Policy = "CanManageCustomers")]
     public async Task<IActionResult> Create([FromBody] CreateCustomerDto createCustomerDto)
     {
+        var document = DocumentValidator.Normalize(createCustomerDto.Document);
+        if (!DocumentValidator.IsValidCpfOrCnpj(document))
+            return BadRequest(new { message = "Informe um CPF ou CNPJ válido." });
+
+        createCustomerDto.Document = document;
+
         if (await _context.Customers.AnyAsync(c => c.Document == createCustomerDto.Document))
             return Conflict(new { message = "Cliente já cadastrado com este CPF/CNPJ." });
 
@@ -79,6 +117,12 @@ public class CustomersController : ControllerBase
     {
         var customer = await _context.Customers.FindAsync(id);
         if (customer is null) return NotFound();
+
+        var document = DocumentValidator.Normalize(updateCustomerDto.Document);
+        if (!DocumentValidator.IsValidCpfOrCnpj(document))
+            return BadRequest(new { message = "Informe um CPF ou CNPJ válido." });
+
+        updateCustomerDto.Document = document;
 
         _mapper.Map(updateCustomerDto, customer);
         await _context.SaveChangesAsync();

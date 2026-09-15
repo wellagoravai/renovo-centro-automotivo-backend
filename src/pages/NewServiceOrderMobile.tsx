@@ -158,6 +158,36 @@ const NewServiceOrderMobile: React.FC = () => {
     }
   };
 
+  const handleDocumentLookup = async () => {
+    const document = customer.document.trim();
+    if (document.length < 11) return;
+
+    try {
+      const response = await api.get(`/Customers/lookup?document=${encodeURIComponent(document)}`);
+      if (!response.ok) {
+        setLookupMessage('Cliente não encontrado. Confira os dados ou conclua o cadastro após o check-in.');
+        setLookupType('notfound');
+        return;
+      }
+
+      const data = await response.json();
+      if (data.customer) {
+        setCustomer(prev => ({
+          ...prev,
+          name: data.customer.name || prev.name,
+          whatsapp: data.customer.whatsApp || prev.whatsapp,
+          phone: data.customer.phone || prev.phone,
+          email: data.customer.email || prev.email,
+          address: data.customer.address || prev.address,
+        }));
+      }
+      setLookupMessage(`Cliente encontrado: ${data.customer.name}. Dados preenchidos.`);
+      setLookupType('success');
+    } catch (error) {
+      console.error('Erro ao consultar CPF/CNPJ:', error);
+    }
+  };
+
   const handleNext = () => {
     if (currentStep < 3) {
       setCurrentStep(currentStep + 1);
@@ -238,6 +268,7 @@ const NewServiceOrderMobile: React.FC = () => {
           name="document"
           value={customer.document}
           onChange={handleCustomerChange}
+          onBlur={handleDocumentLookup}
           placeholder="000.000.000-00"
           required
         />

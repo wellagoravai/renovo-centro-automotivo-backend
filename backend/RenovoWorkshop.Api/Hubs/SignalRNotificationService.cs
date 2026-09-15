@@ -41,4 +41,18 @@ public class SignalRNotificationService : INotificationService
                 Timestamp = DateTime.UtcNow
             }, cancellationToken);
     }
+
+    public async Task NotifyCustomerRegistrationAsync(Guid customerId, string customerName, Guid serviceOrderId, string orderNumber, CancellationToken cancellationToken = default)
+    {
+        await _hubContext.Clients.Group("WorkshopUsers")
+            .SendAsync("ReceiveCustomerRegistration", new
+            {
+                CustomerId = customerId,
+                CustomerName = customerName,
+                ServiceOrderId = serviceOrderId,
+                OrderNumber = orderNumber,
+                Title = "Cadastrar Cliente",
+                Timestamp = DateTime.UtcNow
+            }, cancellationToken);
+    }
 }

@@ -185,6 +185,18 @@
   margin-bottom: 15px;
 }
 
+.vehicle-plate-tv {
+  display: inline-block;
+  font-size: 18px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  color: #2c3e50;
+  background: #f1c40f;
+  border-radius: 4px;
+  padding: 2px 8px;
+  margin: 0 0 6px 0;
+}
+
 .vehicle-info-tv {
   font-size: 22px;
   font-weight: 700;
@@ -493,4 +505,53 @@ textarea.form-control-tv {
     flex: 1;
     max-height: none;
   }
+}
+
+.dashboard-notifications {
+  margin: -20px 0 30px;
+  padding: 18px 22px;
+  background: rgba(255, 193, 7, 0.2);
+  border: 1px solid rgba(255, 193, 7, 0.75);
+  border-radius: 12px;
+}
+
+.dashboard-notifications-heading {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.dashboard-notifications-heading h2 {
+  margin: 0;
+  font-size: 22px;
+}
+
+.dashboard-notifications-heading span {
+  min-width: 28px;
+  padding: 4px 8px;
+  border-radius: 999px;
+  background: #ffc107;
+  color: #3b2f00;
+  text-align: center;
+  font-weight: 700;
+}
+
+.dashboard-notification {
+  display: flex;
+  width: 100%;
+  gap: 10px;
+  align-items: center;
+  margin-top: 8px;
+  padding: 12px 14px;
+  border: 0;
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.16);
+  color: white;
+  text-align: left;
+  cursor: pointer;
+}
+
+.dashboard-notification span {
+  opacity: 0.9;
 }

@@ -56,12 +56,16 @@ const Customers: React.FC = () => {
     e.preventDefault();
     
     try {
-      if (editingCustomer) {
-        await api.put(`/Customers/${editingCustomer.id}`, formData);
-      } else {
-        await api.post('/Customers', formData);
+      const response = editingCustomer
+        ? await api.put(`/Customers/${editingCustomer.id}`, formData)
+        : await api.post('/Customers', formData);
+
+      if (!response.ok) {
+        const error = await response.json().catch(() => null);
+        alert(`❌ ${error?.message || 'Erro ao salvar cliente'}`);
+        return;
       }
-      
+
       setShowModal(false);
       setEditingCustomer(null);
       setFormData({
