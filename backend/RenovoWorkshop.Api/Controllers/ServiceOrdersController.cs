@@ -308,8 +308,8 @@ public class ServiceOrdersController : ControllerBase
             return BadRequest(new { message = "O nome do cliente é obrigatório." });
 
         var document = DocumentValidator.Normalize(request.Customer.Document);
-        if (!DocumentValidator.IsValidCpfOrCnpj(document))
-            return BadRequest(new { message = "CPF ou CNPJ do cliente é obrigatório e deve ser válido." });
+        if (!string.IsNullOrWhiteSpace(document) && !DocumentValidator.IsValidCpfOrCnpj(document))
+            return BadRequest(new { message = "CPF ou CNPJ do cliente inválido." });
 
         request.Customer.Document = document;
 
