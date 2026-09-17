@@ -1,17 +1,23 @@
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.SignalR;
+using Polly;
+using Polly.Extensions.Http;
+using Polly.Timeout;
 using RenovoWorkshop.Api.Auth;
 using RenovoWorkshop.Api.Hubs;
 using RenovoWorkshop.Api.Mapping;
 using RenovoWorkshop.Application.Interfaces;
+using RenovoWorkshop.Infrastructure.Options;
 using RenovoWorkshop.Infrastructure.Persistence;
 using RenovoWorkshop.Infrastructure.Repositories;
 using RenovoWorkshop.Infrastructure.Services;
+using System.Net.Http.Headers;
 using System.Text;
 using System.Threading.RateLimiting;
 
@@ -160,6 +166,42 @@ builder.Services.AddScoped<IServiceOrderStatusService, ServiceOrderStatusService
 builder.Services.AddScoped<IWhatsAppReplyProcessor, WhatsAppReplyProcessor>();
 builder.Services.AddHttpClient<EvolutionApiClient>();
 
+builder.Services.AddMemoryCache();
+builder.Services.Configure<ApiBrasilOptions>(builder.Configuration.GetSection(ApiBrasilOptions.SectionName));
+builder.Services.AddHttpClient<IVeiculoConsultaService, ApiBrasilVeiculoService>("ApiBrasil", (sp, client) =>
+{
+    var apiBrasilOptions = sp.GetRequiredService<IOptions<ApiBrasilOptions>>().Value;
+    client.BaseAddress = new Uri(apiBrasilOptions.BaseUrl.TrimEnd('/') + "/");
+    // O timeout por tentativa é imposto pela policy de Timeout do Polly (abaixo);
+    // o HttpClient em si fica sem timeout próprio para não competir com ela.
+    client.Timeout = Timeout.InfiniteTimeSpan;
+    client.DefaultRequestHeaders.TryAddWithoutValidation("DeviceToken", apiBrasilOptions.DeviceToken);
+    client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", apiBrasilOptions.BearerToken);
+})
+    // Ordem importa: Retry (mais externo) -> CircuitBreaker -> Timeout (mais interno,
+    // aplicado a cada tentativa individual). 429 nunca é retentado: HandleTransientHttpError
+    // só cobre HttpRequestException, 5xx e 408, e 429 é tratado como erro de negócio
+    // dentro do ApiBrasilVeiculoService, sem nunca chegar a essas policies.
+    .AddPolicyHandler(HttpPolicyExtensions
+        .HandleTransientHttpError()
+        .Or<TimeoutRejectedException>()
+        .WaitAndRetryAsync(3, attempt => TimeSpan.FromSeconds(Math.Pow(2, attempt))))
+    .AddPolicyHandler(HttpPolicyExtensions
+        .HandleTransientHttpError()
+        .Or<TimeoutRejectedException>()
+        .CircuitBreakerAsync(handledEventsAllowedBeforeBreaking: 5, durationOfBreak: TimeSpan.FromSeconds(30)))
+    .AddPolicyHandler(Policy.TimeoutAsync<HttpResponseMessage>(TimeSpan.FromSeconds(10)));
+
+builder.Services.Configure<GoogleRoutesOptions>(builder.Configuration.GetSection(GoogleRoutesOptions.SectionName));
+builder.Services.AddHttpClient<IGoogleRoutesTollClient, GoogleRoutesTollClient>("GoogleRoutes", (sp, client) =>
+{
+    var googleRoutesOptions = sp.GetRequiredService<IOptions<GoogleRoutesOptions>>().Value;
+    client.BaseAddress = new Uri(googleRoutesOptions.BaseUrl.TrimEnd('/') + "/");
+    client.Timeout = TimeSpan.FromSeconds(googleRoutesOptions.TimeoutSeconds);
+    client.DefaultRequestHeaders.TryAddWithoutValidation("X-Goog-Api-Key", googleRoutesOptions.ApiKey);
+});
+builder.Services.AddScoped<IFreightQuoteService, FreightQuoteService>();
+
 if (string.IsNullOrWhiteSpace(builder.Configuration["Jwt:Key"]))
     throw new InvalidOperationException("Configuração 'Jwt:Key' não definida. Configure Jwt__Key nas variáveis de ambiente antes de iniciar a aplicação.");
 
@@ -186,6 +228,9 @@ builder.Services.AddAuthorization(options =>
 {
     options.AddPolicy("CanManageCustomers", policy => policy.Requirements.Add(new PermissionRequirement("customers.write")));
     options.AddPolicy("CanManageVehicles", policy => policy.Requirements.Add(new PermissionRequirement("vehicles.write")));
+    // Consulta paga à APIBrasil: mesma permissão de quem já pode cadastrar/editar
+    // veículos (Administrador, Gerente, Recepção) — Mecânico/Almoxarifado não acionam.
+    options.AddPolicy("CanQueryVehicleData", policy => policy.Requirements.Add(new PermissionRequirement("vehicles.write")));
     options.AddPolicy("CanManageOrders", policy => policy.Requirements.Add(new PermissionRequirement("orders.write")));
     options.AddPolicy("CanManageInventory", policy => policy.Requirements.Add(new PermissionRequirement("inventory.write")));
     options.AddPolicy("CanManageUsers", policy => policy.Requirements.Add(new PermissionRequirement("users.manage")));

@@ -171,11 +171,26 @@ public class ServiceOrdersController : ControllerBase
 
         // Campos de check-in: só sobrescreve quando o cliente enviou o campo — evita que
         // um PUT parcial (ex.: só diagnóstico) apague responsável, problema relatado ou
-        // dados do cliente/veículo por omissão. Cliente e Veículo são entidades
-        // compartilhadas por outras OS, então a edição aqui reflete nelas também.
+        // dados do cliente/veículo por omissão. Veículo é uma entidade compartilhada por
+        // outras OS, então a edição aqui reflete nelas também.
         if (updateDto.ResponsibleUser is not null) order.ResponsibleUser = updateDto.ResponsibleUser;
         if (updateDto.ProblemReported is not null) order.ProblemReported = updateDto.ProblemReported;
-        if (updateDto.CustomerName is not null) order.Customer.Name = updateDto.CustomerName;
+
+        // Troca de cliente: reaponta a OS para outro Customer já cadastrado (por Id), em vez
+        // de renomear o Customer atual — renomear mutaria um registro compartilhado por
+        // outras OS (foi exatamente isso que causou o incidente em produção de 2026-09-16,
+        // onde abrir uma OS com CPF já cadastrado sobrescreveu o nome do cliente em todas as
+        // OS que apontavam pra ele).
+        if (updateDto.CustomerId.HasValue && updateDto.CustomerId.Value != order.CustomerId)
+        {
+            var newCustomer = await _context.Customers.FindAsync(updateDto.CustomerId.Value);
+            if (newCustomer is null)
+                return BadRequest(new { message = "Cliente selecionado não encontrado." });
+
+            order.CustomerId = newCustomer.Id;
+            order.Customer = newCustomer;
+        }
+
         if (updateDto.VehiclePlate is not null) order.Vehicle.Plate = updateDto.VehiclePlate;
         if (updateDto.VehicleBrand is not null) order.Vehicle.Brand = updateDto.VehicleBrand;
         if (updateDto.VehicleModel is not null) order.Vehicle.Model = updateDto.VehicleModel;
@@ -318,10 +333,21 @@ public class ServiceOrdersController : ControllerBase
             : await _context.Customers.FirstOrDefaultAsync(c => c.Document == document);
 
         Customer customer;
-        var customerWasCreated = existingCustomer is null;
+        var customerWasCreated = false;
         if (existingCustomer is null)
         {
-            // Create new customer
+            // CPF/CNPJ informado mas não cadastrado: não cria o cliente aqui — o
+            // check-in fica pendente até o cliente ser cadastrado de verdade pela tela
+            // de Clientes (evita registros incompletos/duplicados criados às pressas
+            // durante a abertura da OS). O front reenvia esta mesma chamada depois que
+            // o cliente existir.
+            if (!string.IsNullOrWhiteSpace(document))
+                return NotFound(new { message = "Cliente não cadastrado com este CPF/CNPJ. Cadastre o cliente antes de continuar.", document });
+
+            // Sem documento (atendimento avulso/urgência, ex.: guincho): cria um registro
+            // simples aqui mesmo. Documento vazio nunca é usado em busca (ver acima), então
+            // esse registro nunca é encontrado/reaproveitado por outro check-in depois —
+            // sem risco do merge que já causou incidente em produção.
             customer = new Customer
             {
                 Id = Guid.NewGuid(),
@@ -334,11 +360,15 @@ public class ServiceOrdersController : ControllerBase
                 CreatedAt = DateTime.UtcNow
             };
             _context.Customers.Add(customer);
+            customerWasCreated = true;
         }
         else
         {
             customer = existingCustomer;
-            customer.Name = request.Customer.Name.Trim();
+            var incomingName = request.Customer.Name.Trim();
+            if (!string.Equals(customer.Name, incomingName, StringComparison.OrdinalIgnoreCase))
+                return Conflict(new { message = $"O CPF/CNPJ informado já está cadastrado para o cliente \"{customer.Name}\". Confirme os dados antes de continuar." });
+
             customer.WhatsApp = request.Customer.WhatsApp;
             customer.Phone = request.Customer.Phone;
             customer.Email = request.Customer.Email;

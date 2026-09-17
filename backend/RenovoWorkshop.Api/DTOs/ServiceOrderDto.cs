@@ -53,6 +53,16 @@ public class TowServiceDetailsDto
     public string DeliveredByDocument { get; set; } = string.Empty;
     public string ReceivedByName { get; set; } = string.Empty;
     public string ReceivedByDocument { get; set; } = string.Empty;
+
+    public string? OriginCity { get; set; }
+    public string? OriginState { get; set; }
+    public string? DestinationCity { get; set; }
+    public string? DestinationState { get; set; }
+    public decimal? PricePerKm { get; set; }
+    public int? AxleCount { get; set; }
+    public double? DistanceKm { get; set; }
+    public decimal? TollsValue { get; set; }
+    public decimal? FreightTotal { get; set; }
 }
 
 public class CreateServiceOrderDto
@@ -118,7 +128,7 @@ public class UpdateServiceOrderDto
     // Customer/Vehicle, entidades compartilhadas por outras OS do mesmo cliente/veículo.
     public string? ResponsibleUser { get; set; }
     public string? ProblemReported { get; set; }
-    public string? CustomerName { get; set; }
+    public Guid? CustomerId { get; set; }
     public string? VehiclePlate { get; set; }
     public string? VehicleBrand { get; set; }
     public string? VehicleModel { get; set; }

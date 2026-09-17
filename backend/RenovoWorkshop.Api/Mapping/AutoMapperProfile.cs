@@ -53,7 +53,8 @@ public class AutoMapperProfile : Profile
         // já aplica os dois manualmente só quando presentes, então ficam ignorados aqui.
         CreateMap<UpdateServiceOrderDto, ServiceOrder>()
             .ForMember(dest => dest.ResponsibleUser, opt => opt.Ignore())
-            .ForMember(dest => dest.ProblemReported, opt => opt.Ignore());
+            .ForMember(dest => dest.ProblemReported, opt => opt.Ignore())
+            .ForMember(dest => dest.CustomerId, opt => opt.Ignore());
 
         CreateMap<ServiceOrderItem, ServiceOrderItemDto>()
             .ForMember(dest => dest.ItemCode, opt => opt.MapFrom(src => src.InventoryItem.Code))

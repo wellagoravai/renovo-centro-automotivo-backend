@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using RenovoWorkshop.Infrastructure.Persistence;
@@ -11,9 +12,11 @@ using RenovoWorkshop.Infrastructure.Persistence;
 namespace RenovoWorkshop.Infrastructure.Migrations
 {
     [DbContext(typeof(RenovoWorkshopDbContext))]
-    partial class RenovoWorkshopDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260915121457_AddVehicleLookupAuditLog")]
+    partial class AddVehicleLookupAuditLog
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -517,9 +520,6 @@ namespace RenovoWorkshop.Infrastructure.Migrations
                         .IsRequired()
                         .HasColumnType("text");
 
-                    b.Property<int?>("AxleCount")
-                        .HasColumnType("integer");
-
                     b.Property<string>("ClaimNumber")
                         .IsRequired()
                         .HasColumnType("text");
@@ -536,34 +536,13 @@ namespace RenovoWorkshop.Infrastructure.Migrations
                         .IsRequired()
                         .HasColumnType("text");
 
-                    b.Property<string>("DestinationCity")
-                        .HasColumnType("text");
-
-                    b.Property<string>("DestinationState")
-                        .HasColumnType("text");
-
-                    b.Property<double?>("DistanceKm")
-                        .HasColumnType("double precision");
-
-                    b.Property<decimal?>("FreightTotal")
-                        .HasColumnType("numeric");
-
                     b.Property<string>("InsuranceCompany")
                         .IsRequired()
-                        .HasColumnType("text");
-
-                    b.Property<string>("OriginCity")
-                        .HasColumnType("text");
-
-                    b.Property<string>("OriginState")
                         .HasColumnType("text");
 
                     b.Property<string>("PickupLocation")
                         .IsRequired()
                         .HasColumnType("text");
-
-                    b.Property<decimal?>("PricePerKm")
-                        .HasColumnType("numeric");
 
                     b.Property<string>("ReceivedByDocument")
                         .IsRequired()
@@ -575,9 +554,6 @@ namespace RenovoWorkshop.Infrastructure.Migrations
 
                     b.Property<Guid>("ServiceOrderId")
                         .HasColumnType("uuid");
-
-                    b.Property<decimal?>("TollsValue")
-                        .HasColumnType("numeric");
 
                     b.Property<string>("TowUnit")
                         .IsRequired()

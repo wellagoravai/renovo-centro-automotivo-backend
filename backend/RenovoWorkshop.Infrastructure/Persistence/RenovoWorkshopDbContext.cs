@@ -25,6 +25,7 @@ public class RenovoWorkshopDbContext : DbContext
     public DbSet<WorkshopSettings> WorkshopSettings => Set<WorkshopSettings>();
     public DbSet<TowServiceDetails> TowServiceDetails => Set<TowServiceDetails>();
     public DbSet<DashboardNotification> DashboardNotifications => Set<DashboardNotification>();
+    public DbSet<VehicleLookupAuditLog> VehicleLookupAuditLogs => Set<VehicleLookupAuditLog>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -186,6 +187,14 @@ public class RenovoWorkshopDbContext : DbContext
             entity.Property(n => n.Title).IsRequired().HasMaxLength(150);
             entity.Property(n => n.Message).IsRequired().HasMaxLength(500);
             entity.HasIndex(n => new { n.IsRead, n.CreatedAt });
+        });
+
+        modelBuilder.Entity<VehicleLookupAuditLog>(entity =>
+        {
+            entity.HasKey(l => l.Id);
+            entity.Property(l => l.Placa).IsRequired().HasMaxLength(20);
+            entity.Property(l => l.FonteDados).IsRequired().HasMaxLength(20);
+            entity.HasIndex(l => new { l.Placa, l.ConsultadoEm });
         });
     }
 }
