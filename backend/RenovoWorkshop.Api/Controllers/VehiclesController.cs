@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using RenovoWorkshop.Api.DTOs;
+using RenovoWorkshop.Api.Helpers;
 using RenovoWorkshop.Domain.Entities;
 using RenovoWorkshop.Infrastructure.Persistence;
 
@@ -30,18 +31,23 @@ public class VehiclesController : ControllerBase
             .Include(v => v.ServiceOrders)
             .AsQueryable();
 
-        if (!string.IsNullOrWhiteSpace(search))
-        {
-            var term = search.Trim();
-            query = query.Where(v => v.Plate.Contains(term) || v.Brand.Contains(term) || v.Model.Contains(term) || v.Chassis.Contains(term));
-        }
-
         if (customerId.HasValue)
         {
             query = query.Where(v => v.CustomerId == customerId.Value);
         }
 
         var vehicles = await query.OrderByDescending(v => v.CreatedAt).ToListAsync();
+
+        if (!string.IsNullOrWhiteSpace(search))
+        {
+            var term = search.Trim();
+            vehicles = vehicles.Where(v =>
+                SearchNormalizer.Contains(v.Plate, term) ||
+                SearchNormalizer.Contains(v.Brand, term) ||
+                SearchNormalizer.Contains(v.Model, term) ||
+                SearchNormalizer.Contains(v.Chassis, term)).ToList();
+        }
+
         var vehicleDtos = _mapper.Map<List<VehicleDto>>(vehicles);
         return Ok(vehicleDtos);
     }

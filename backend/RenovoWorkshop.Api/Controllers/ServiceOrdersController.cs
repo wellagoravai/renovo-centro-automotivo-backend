@@ -71,19 +71,23 @@ public class ServiceOrdersController : ControllerBase
         if (assignedUserId.HasValue)
             query = query.Where(o => o.AssignedUserId == assignedUserId.Value);
 
+        var orders = await query.OrderByDescending(o => o.EntryDate).ToListAsync();
+
         if (!string.IsNullOrWhiteSpace(search))
         {
             var term = search.Trim();
-            query = query.Where(o => o.Number.Contains(term) || o.Customer.Name.Contains(term) || o.Vehicle.Plate.Contains(term));
+            orders = orders.Where(o =>
+                SearchNormalizer.Contains(o.Number, term) ||
+                SearchNormalizer.Contains(o.Customer.Name, term) ||
+                SearchNormalizer.Contains(o.Vehicle.Plate, term)).ToList();
         }
 
         if (!string.IsNullOrWhiteSpace(responsibleUser))
         {
             var term = responsibleUser.Trim();
-            query = query.Where(o => o.ResponsibleUser.Contains(term));
+            orders = orders.Where(o => SearchNormalizer.Contains(o.ResponsibleUser, term)).ToList();
         }
 
-        var orders = await query.OrderByDescending(o => o.EntryDate).ToListAsync();
         var orderDtos = _mapper.Map<List<ServiceOrderDto>>(orders);
         await AttachTowDetailsAsync(orders, orderDtos);
         return Ok(orderDtos);

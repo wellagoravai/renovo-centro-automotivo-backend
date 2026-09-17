@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using RenovoWorkshop.Api.DTOs;
+using RenovoWorkshop.Api.Helpers;
 using RenovoWorkshop.Domain.Constants;
 using RenovoWorkshop.Domain.Entities;
 using RenovoWorkshop.Infrastructure.Persistence;
@@ -29,18 +30,22 @@ public class UsersController : ControllerBase
     {
         var query = _context.Users.AsQueryable();
 
-        if (!string.IsNullOrWhiteSpace(search))
-        {
-            var term = search.Trim();
-            query = query.Where(u => u.UserName.Contains(term) || u.Email.Contains(term) || u.FullName.Contains(term));
-        }
-
         if (!string.IsNullOrWhiteSpace(role))
         {
             query = query.Where(u => u.Role == role);
         }
 
         var users = await query.OrderByDescending(u => u.CreatedAt).ToListAsync();
+
+        if (!string.IsNullOrWhiteSpace(search))
+        {
+            var term = search.Trim();
+            users = users.Where(u =>
+                SearchNormalizer.Contains(u.UserName, term) ||
+                SearchNormalizer.Contains(u.Email, term) ||
+                SearchNormalizer.Contains(u.FullName, term)).ToList();
+        }
+
         var userDtos = _mapper.Map<List<UserDto>>(users);
         return Ok(userDtos);
     }

@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using RenovoWorkshop.Api.DTOs;
+using RenovoWorkshop.Api.Helpers;
 using RenovoWorkshop.Domain.Entities;
 using RenovoWorkshop.Infrastructure.Persistence;
 
@@ -27,13 +28,17 @@ public class SuppliersController : ControllerBase
     {
         var query = _context.Suppliers.AsQueryable();
 
+        var suppliers = await query.OrderBy(s => s.Name).ToListAsync();
+
         if (!string.IsNullOrWhiteSpace(search))
         {
             var term = search.Trim();
-            query = query.Where(s => s.Name.Contains(term) || s.Document.Contains(term) || s.Email.Contains(term));
+            suppliers = suppliers.Where(s =>
+                SearchNormalizer.Contains(s.Name, term) ||
+                SearchNormalizer.Contains(s.Document, term) ||
+                SearchNormalizer.Contains(s.Email, term)).ToList();
         }
 
-        var suppliers = await query.OrderBy(s => s.Name).ToListAsync();
         var supplierDtos = _mapper.Map<List<SupplierDto>>(suppliers);
         return Ok(supplierDtos);
     }

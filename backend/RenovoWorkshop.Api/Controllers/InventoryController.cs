@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using RenovoWorkshop.Api.DTOs;
+using RenovoWorkshop.Api.Helpers;
 using RenovoWorkshop.Application.Interfaces;
 using RenovoWorkshop.Domain.Entities;
 using RenovoWorkshop.Infrastructure.Persistence;
@@ -30,12 +31,6 @@ public class InventoryController : ControllerBase
     {
         var query = _context.InventoryItems.AsQueryable();
 
-        if (!string.IsNullOrWhiteSpace(search))
-        {
-            var term = search.Trim();
-            query = query.Where(i => i.Code.Contains(term) || i.Description.Contains(term) || i.Brand.Contains(term));
-        }
-
         if (!string.IsNullOrWhiteSpace(category))
         {
             query = query.Where(i => i.Category == category);
@@ -47,6 +42,16 @@ public class InventoryController : ControllerBase
         }
 
         var items = await query.OrderBy(i => i.Code).ToListAsync();
+
+        if (!string.IsNullOrWhiteSpace(search))
+        {
+            var term = search.Trim();
+            items = items.Where(i =>
+                SearchNormalizer.Contains(i.Code, term) ||
+                SearchNormalizer.Contains(i.Description, term) ||
+                SearchNormalizer.Contains(i.Brand, term)).ToList();
+        }
+
         var itemDtos = _mapper.Map<List<InventoryItemDto>>(items);
         return Ok(itemDtos);
     }

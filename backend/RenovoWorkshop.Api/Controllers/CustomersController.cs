@@ -31,13 +31,17 @@ public class CustomersController : ControllerBase
             .Include(c => c.ServiceOrders)
             .AsQueryable();
 
+        var customers = await query.OrderByDescending(c => c.CreatedAt).ToListAsync();
+
         if (!string.IsNullOrWhiteSpace(search))
         {
             var term = search.Trim();
-            query = query.Where(c => c.Name.Contains(term) || c.Document.Contains(term) || c.Phone.Contains(term));
+            customers = customers.Where(c =>
+                SearchNormalizer.Contains(c.Name, term) ||
+                SearchNormalizer.Contains(c.Document, term) ||
+                SearchNormalizer.Contains(c.Phone, term)).ToList();
         }
 
-        var customers = await query.OrderByDescending(c => c.CreatedAt).ToListAsync();
         var customerDtos = _mapper.Map<List<CustomerDto>>(customers);
         return Ok(customerDtos);
     }
