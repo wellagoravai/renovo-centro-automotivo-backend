@@ -27,6 +27,7 @@ public class RenovoWorkshopDbContext : DbContext
     public DbSet<DashboardNotification> DashboardNotifications => Set<DashboardNotification>();
     public DbSet<VehicleLookupAuditLog> VehicleLookupAuditLogs => Set<VehicleLookupAuditLog>();
     public DbSet<TripExpense> TripExpenses => Set<TripExpense>();
+    public DbSet<TowQuote> TowQuotes => Set<TowQuote>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -130,6 +131,30 @@ public class RenovoWorkshopDbContext : DbContext
             entity.HasOne(e => e.ServiceOrder)
                 .WithMany()
                 .HasForeignKey(e => e.ServiceOrderId)
+                .OnDelete(DeleteBehavior.SetNull);
+        });
+
+        modelBuilder.Entity<TowQuote>(entity =>
+        {
+            entity.HasKey(q => q.Id);
+            entity.Property(q => q.Number).IsRequired().HasMaxLength(30);
+            entity.HasIndex(q => q.Number);
+            entity.Property(q => q.Status).IsRequired().HasMaxLength(20);
+            entity.HasIndex(q => q.Status);
+            entity.HasIndex(q => q.CreatedAt);
+            entity.Property(q => q.CustomerName).HasMaxLength(200);
+            entity.Property(q => q.CustomerPhone).HasMaxLength(50);
+            entity.Property(q => q.VehiclePlate).HasMaxLength(20);
+            entity.Property(q => q.VehicleDescription).HasMaxLength(200);
+            entity.Property(q => q.RouteSummary).HasMaxLength(1000);
+            entity.Property(q => q.TotalKm).HasPrecision(10, 1);
+            entity.Property(q => q.Total).HasPrecision(12, 2);
+            entity.Property(q => q.CreatedBy).HasMaxLength(200);
+            entity.Property(q => q.DecidedBy).HasMaxLength(200);
+            // Orçamento é histórico comercial: apagar a OS só solta o vínculo.
+            entity.HasOne(q => q.ServiceOrder)
+                .WithMany()
+                .HasForeignKey(q => q.ServiceOrderId)
                 .OnDelete(DeleteBehavior.SetNull);
         });
 

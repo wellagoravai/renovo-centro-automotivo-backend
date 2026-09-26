@@ -231,6 +231,7 @@ builder.Services.AddAuthorization(options =>
     // Consulta paga à APIBrasil: mesma permissão de quem já pode cadastrar/editar
     // veículos (Administrador, Gerente, Recepção) — Mecânico/Almoxarifado não acionam.
     options.AddPolicy("CanQueryVehicleData", policy => policy.Requirements.Add(new PermissionRequirement("vehicles.write")));
+    options.AddPolicy("CanReadOrders", policy => policy.Requirements.Add(new PermissionRequirement("orders.read")));
     options.AddPolicy("CanManageOrders", policy => policy.Requirements.Add(new PermissionRequirement("orders.write")));
     options.AddPolicy("CanManageInventory", policy => policy.Requirements.Add(new PermissionRequirement("inventory.write")));
     options.AddPolicy("CanManageUsers", policy => policy.Requirements.Add(new PermissionRequirement("users.manage")));
@@ -254,7 +255,9 @@ using (var scope = app.Services.CreateScope())
     // ConnectionStrings__DefaultConnection contendo "Host=" (nem que seja uma string
     // fake, tipo "Host=localhost;Database=x;Username=x;Password=x") pra forçar o
     // design-time a usar o provedor Npgsql — senão a migration sai com tipos do
-    // SQLite (ex.: "TEXT") e quebra de novo em produção.
+    // SQLite (ex.: "TEXT") e quebra de novo em produção. Defina também
+    // RENOVO_SKIP_DOTENV=1 (senão o backend/.env local sobrescreve a connection
+    // string) e um Jwt__Key qualquer.
     if (context.Database.ProviderName?.Contains("Npgsql", StringComparison.OrdinalIgnoreCase) == true)
         context.Database.Migrate();
     else
