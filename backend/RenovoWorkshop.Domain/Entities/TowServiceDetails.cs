@@ -33,5 +33,12 @@ public class TowServiceDetails
     public decimal? TollsValue { get; set; }
     public decimal? FreightTotal { get; set; }
 
+    // Hodômetro do caminhão guincho no início e no fim do atendimento, com a
+    // foto do painel como comprovante (URL da foto já enviada em /photos).
+    public int? TruckStartKm { get; set; }
+    public int? TruckEndKm { get; set; }
+    public string? TruckStartKmPhotoUrl { get; set; }
+    public string? TruckEndKmPhotoUrl { get; set; }
+
     public ServiceOrder ServiceOrder { get; set; } = null!;
 }

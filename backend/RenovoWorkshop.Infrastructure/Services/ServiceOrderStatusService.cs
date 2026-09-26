@@ -41,7 +41,8 @@ public class ServiceOrderStatusService : IServiceOrderStatusService
         }
 
         order.Status = newStatus;
-        order.Notes = notes ?? order.Notes;
+        // A observação da troca de status vai só para o histórico: ela não substitui
+        // as observações da OS (que guardam, por exemplo, o acordo do orçamento).
         order.FinalDate = newStatus == "Entregue" ? DateTime.UtcNow : order.FinalDate;
 
         // "Entregue" é o estágio terminal da OS: na primeira vez que a ordem chega
@@ -71,7 +72,7 @@ public class ServiceOrderStatusService : IServiceOrderStatusService
             Status = newStatus,
             ChangedAt = DateTime.UtcNow,
             ChangedBy = changedBy,
-            Notes = notes ?? $"Status alterado de {previousStatus} para {newStatus}"
+            Notes = string.IsNullOrWhiteSpace(notes) ? $"Status alterado de {previousStatus} para {newStatus}" : notes.Trim()
         });
 
         await _context.SaveChangesAsync(cancellationToken);

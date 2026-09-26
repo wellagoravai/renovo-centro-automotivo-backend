@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using RenovoWorkshop.Infrastructure.Persistence;
@@ -11,9 +12,11 @@ using RenovoWorkshop.Infrastructure.Persistence;
 namespace RenovoWorkshop.Infrastructure.Migrations
 {
     [DbContext(typeof(RenovoWorkshopDbContext))]
-    partial class RenovoWorkshopDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260924182656_AddTowTruckKmFields")]
+    partial class AddTowTruckKmFields
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -602,50 +605,6 @@ namespace RenovoWorkshop.Infrastructure.Migrations
                     b.ToTable("TowServiceDetails");
                 });
 
-            modelBuilder.Entity("RenovoWorkshop.Domain.Entities.TripExpense", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid");
-
-                    b.Property<decimal>("Amount")
-                        .HasPrecision(12, 2)
-                        .HasColumnType("numeric(12,2)");
-
-                    b.Property<string>("Category")
-                        .IsRequired()
-                        .HasMaxLength(50)
-                        .HasColumnType("character varying(50)");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<string>("CreatedBy")
-                        .IsRequired()
-                        .HasMaxLength(200)
-                        .HasColumnType("character varying(200)");
-
-                    b.Property<string>("Description")
-                        .IsRequired()
-                        .HasMaxLength(2000)
-                        .HasColumnType("character varying(2000)");
-
-                    b.Property<string>("PhotoUrl")
-                        .HasMaxLength(1000)
-                        .HasColumnType("character varying(1000)");
-
-                    b.Property<Guid?>("ServiceOrderId")
-                        .HasColumnType("uuid");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("CreatedAt");
-
-                    b.HasIndex("ServiceOrderId");
-
-                    b.ToTable("TripExpenses");
-                });
-
             modelBuilder.Entity("RenovoWorkshop.Domain.Entities.Vehicle", b =>
                 {
                     b.Property<Guid>("Id")
@@ -1080,16 +1039,6 @@ namespace RenovoWorkshop.Infrastructure.Migrations
                         .HasForeignKey("ServiceOrderId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
-
-                    b.Navigation("ServiceOrder");
-                });
-
-            modelBuilder.Entity("RenovoWorkshop.Domain.Entities.TripExpense", b =>
-                {
-                    b.HasOne("RenovoWorkshop.Domain.Entities.ServiceOrder", "ServiceOrder")
-                        .WithMany()
-                        .HasForeignKey("ServiceOrderId")
-                        .OnDelete(DeleteBehavior.SetNull);
 
                     b.Navigation("ServiceOrder");
                 });

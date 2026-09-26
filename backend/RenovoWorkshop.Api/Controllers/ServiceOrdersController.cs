@@ -331,6 +331,7 @@ public class ServiceOrdersController : ControllerBase
             return BadRequest(new { message = "CPF ou CNPJ do cliente inválido." });
 
         request.Customer.Document = document;
+        var isTow = request.ServiceType == ServiceOrderTypes.Guincho;
 
         var existingCustomer = string.IsNullOrWhiteSpace(document)
             ? null
@@ -345,7 +346,10 @@ public class ServiceOrdersController : ControllerBase
             // de Clientes (evita registros incompletos/duplicados criados às pressas
             // durante a abertura da OS). O front reenvia esta mesma chamada depois que
             // o cliente existir.
-            if (!string.IsNullOrWhiteSpace(document))
+            // Exceção: guincho é atendimento de urgência (o chamado chega com o CPF do
+            // associado e ninguém vai parar a remoção para cadastrar cliente). Cria o
+            // registro com o documento e gera o mesmo aviso "Cadastrar Cliente" abaixo.
+            if (!string.IsNullOrWhiteSpace(document) && !isTow)
                 return NotFound(new { message = "Cliente não cadastrado com este CPF/CNPJ. Cadastre o cliente antes de continuar.", document });
 
             // Sem documento (atendimento avulso/urgência, ex.: guincho): cria um registro
@@ -380,9 +384,17 @@ public class ServiceOrdersController : ControllerBase
         }
 
         // Check if vehicle exists by plate
-        var normalizedPlate = request.Vehicle.Plate.Trim().ToUpperInvariant();
-        var existingVehicle = await _context.Vehicles
-            .FirstOrDefaultAsync(v => v.Plate == normalizedPlate);
+        var normalizedPlate = (request.Vehicle.Plate ?? string.Empty).Trim().ToUpperInvariant();
+
+        // Na OS de guincho os dados do veículo só são conhecidos no local da remoção:
+        // sem placa, cria um veículo "a definir" só desta OS (placa vazia nunca é usada
+        // em busca, então não é reaproveitado). Na oficina a placa continua obrigatória.
+        if (string.IsNullOrWhiteSpace(normalizedPlate) && !isTow)
+            return BadRequest(new { message = "Informe a placa do veículo." });
+
+        var existingVehicle = string.IsNullOrWhiteSpace(normalizedPlate)
+            ? null
+            : await _context.Vehicles.FirstOrDefaultAsync(v => v.Plate == normalizedPlate);
 
         Vehicle vehicle;
         if (existingVehicle is null)
@@ -410,6 +422,12 @@ public class ServiceOrdersController : ControllerBase
                 return Conflict(new { message = "A placa informada já está vinculada a outro cliente. Confirme os dados antes de continuar." });
         }
 
+        // Status inicial precisa ser do fluxo do tipo: o DTO tem "Recebido" (oficina)
+        // como padrão, o que deixava a OS de guincho fora do fluxo e do painel.
+        var initialStatus = ServiceOrderStatuses.ForServiceType(request.ServiceType).Contains(request.Status)
+            ? request.Status
+            : ServiceOrderStatuses.ForServiceType(request.ServiceType)[0];
+
         // Create service order
         var order = new ServiceOrder
         {
@@ -420,7 +438,7 @@ public class ServiceOrdersController : ControllerBase
             Services = request.Services,
             Notes = request.Notes,
             EstimatedDate = request.EstimatedDate,
-            Status = request.Status,
+            Status = initialStatus,
             ResponsibleUser = request.ResponsibleUser,
             AssignedUserId = request.AssignedUserId,
             Photos = request.Photos,
@@ -600,5 +618,28 @@ public class ServiceOrdersController : ControllerBase
         await _context.SaveChangesAsync();
 
         return CreatedAtAction(nameof(GetPhotos), new { id }, _mapper.Map<ServiceOrderPhotoDto>(photo));
+    }
+
+    // Remove foto enviada por engano. Se for a foto do painel (KM inicial/final do
+    // caminhão), também desvincula dos dados do guincho para não ficar URL quebrada.
+    [HttpDelete("{id:guid}/photos/{photoId:guid}")]
+    [Authorize(Policy = "CanManageOrders")]
+    public async Task<IActionResult> DeletePhoto(Guid id, Guid photoId)
+    {
+        var photo = await _context.ServiceOrderPhotos.FirstOrDefaultAsync(p => p.Id == photoId && p.ServiceOrderId == id);
+        if (photo is null) return NotFound();
+
+        var tow = await _context.TowServiceDetails.FirstOrDefaultAsync(t => t.ServiceOrderId == id);
+        if (tow is not null)
+        {
+            if (tow.TruckStartKmPhotoUrl == photo.Url) tow.TruckStartKmPhotoUrl = null;
+            if (tow.TruckEndKmPhotoUrl == photo.Url) tow.TruckEndKmPhotoUrl = null;
+        }
+
+        _context.ServiceOrderPhotos.Remove(photo);
+        await _context.SaveChangesAsync();
+        await _photoStorageService.DeleteAsync(photo.Url, HttpContext.RequestAborted);
+
+        return NoContent();
     }
 }

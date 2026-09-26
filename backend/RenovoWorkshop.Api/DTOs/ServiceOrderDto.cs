@@ -63,6 +63,11 @@ public class TowServiceDetailsDto
     public double? DistanceKm { get; set; }
     public decimal? TollsValue { get; set; }
     public decimal? FreightTotal { get; set; }
+
+    public int? TruckStartKm { get; set; }
+    public int? TruckEndKm { get; set; }
+    public string? TruckStartKmPhotoUrl { get; set; }
+    public string? TruckEndKmPhotoUrl { get; set; }
 }
 
 public class CreateServiceOrderDto
