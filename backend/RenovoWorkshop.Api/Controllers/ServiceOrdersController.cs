@@ -22,9 +22,11 @@ public class ServiceOrdersController : ControllerBase
     private readonly IPhotoStorageService _photoStorageService;
     private readonly IQuoteDocumentService _quoteDocumentService;
     private readonly INotificationService _notificationService;
+    private readonly IQuoteImageLoader _quoteImageLoader;
 
-    public ServiceOrdersController(RenovoWorkshopDbContext context, IMapper mapper, IServiceOrderStatusService statusService, IPhotoStorageService photoStorageService, IQuoteDocumentService quoteDocumentService, INotificationService notificationService)
+    public ServiceOrdersController(RenovoWorkshopDbContext context, IMapper mapper, IServiceOrderStatusService statusService, IPhotoStorageService photoStorageService, IQuoteDocumentService quoteDocumentService, INotificationService notificationService, IQuoteImageLoader quoteImageLoader)
     {
+        _quoteImageLoader = quoteImageLoader;
         _context = context;
         _mapper = mapper;
         _statusService = statusService;
@@ -47,7 +49,8 @@ public class ServiceOrdersController : ControllerBase
 
         if (order is null) return NotFound();
 
-        var pdfBytes = _quoteDocumentService.GenerateQuotePdf(order, order.Customer);
+        var images = await _quoteImageLoader.LoadAsync(order, HttpContext.RequestAborted);
+        var pdfBytes = _quoteDocumentService.GenerateQuotePdf(order, order.Customer, images);
         return File(pdfBytes, "application/pdf", $"Orcamento-{order.Number}.pdf");
     }
 
@@ -179,6 +182,8 @@ public class ServiceOrdersController : ControllerBase
         // outras OS, então a edição aqui reflete nelas também.
         if (updateDto.ResponsibleUser is not null) order.ResponsibleUser = updateDto.ResponsibleUser;
         if (updateDto.ProblemReported is not null) order.ProblemReported = updateDto.ProblemReported;
+        if (updateDto.ClearEstimatedDate == true) order.EstimatedDate = null;
+        else if (updateDto.EstimatedDate.HasValue) order.EstimatedDate = DateTime.SpecifyKind(updateDto.EstimatedDate.Value, DateTimeKind.Utc);
 
         // Troca de cliente: reaponta a OS para outro Customer já cadastrado (por Id), em vez
         // de renomear o Customer atual — renomear mutaria um registro compartilhado por
@@ -274,13 +279,7 @@ public class ServiceOrdersController : ControllerBase
         return NoContent();
     }
 
-    // Value nunca é digitado diretamente — é sempre mão de obra + soma das peças
-    // lançadas, para o resumo de orçamento mandado ao cliente (e os relatórios que
-    // leem Value) nunca ficarem incoerentes com os itens reais da OS.
-    private static void RecalculateValue(ServiceOrder order)
-    {
-        order.Value = order.LaborValue + order.Items.Sum(i => i.Quantity * i.UnitValue);
-    }
+    private static void RecalculateValue(ServiceOrder order) => order.RecalculateValue();
 
     [HttpPost]
     [Authorize(Policy = "CanManageOrders")]
@@ -323,12 +322,92 @@ public class ServiceOrdersController : ControllerBase
     [Authorize(Policy = "CanManageOrders")]
     public async Task<IActionResult> CreateWithCustomerVehicle([FromBody] CreateServiceOrderWithCustomerVehicleDto request)
     {
+        var (prepared, error) = await PrepareOrderAsync(request, "Ordem criada");
+        if (error is not null) return error;
+        return await CompleteOrderAsync(prepared!);
+    }
+
+    // Pedido (rascunho de OS de oficina) aprovado: abre a OS com os dados do pedido, pelas mesmas
+    // regras de cliente/veículo do check-in, e leva as fotos do pedido para a OS. Tudo
+    // num único SaveChanges — ou a OS nasce com as fotos e o pedido marcado, ou nada muda.
+    [HttpPost("from-request/{requestId:guid}")]
+    [Authorize(Policy = "CanManageOrders")]
+    public async Task<IActionResult> CreateFromRequest(Guid requestId, [FromBody] CreateOrderFromRequestRequest body)
+    {
+        var serviceRequest = await _context.ServiceRequests
+            .Include(r => r.Photos)
+            .Include(r => r.ServiceOrder)
+            .FirstOrDefaultAsync(r => r.Id == requestId);
+        if (serviceRequest is null) return NotFound();
+
+        if (serviceRequest.Status == ServiceRequestStatuses.OsCriada)
+            return Conflict(new { message = $"Este pedido já virou a OS {serviceRequest.ServiceOrder?.Number}.", serviceOrderId = serviceRequest.ServiceOrderId });
+        if (serviceRequest.Status != ServiceRequestStatuses.Aprovado)
+            return BadRequest(new { message = "Marque o pedido como aprovado antes de criar a OS." });
+
+        // Pedido é sempre de oficina (guincho tem o próprio fluxo de chamado/orçamento).
+        var orderRequest = new CreateServiceOrderWithCustomerVehicleDto
+        {
+            ServiceType = ServiceOrderTypes.Oficina,
+            ProblemReported = serviceRequest.ProblemReported,
+            Notes = serviceRequest.Notes,
+            ResponsibleUser = string.IsNullOrWhiteSpace(body.ResponsibleUser) ? User.Identity?.Name ?? string.Empty : body.ResponsibleUser,
+            AssignedUserId = body.AssignedUserId,
+            Customer = new CustomerInfoDto
+            {
+                Name = serviceRequest.CustomerName,
+                Document = serviceRequest.CustomerDocument,
+                Phone = serviceRequest.CustomerPhone,
+            },
+            Vehicle = new VehicleInfoDto
+            {
+                Plate = serviceRequest.VehiclePlate,
+                Brand = serviceRequest.VehicleBrand,
+                Model = serviceRequest.VehicleModel,
+                Year = serviceRequest.VehicleYear ?? 0,
+                Color = serviceRequest.VehicleColor,
+                Mileage = serviceRequest.VehicleMileage ?? 0,
+            },
+        };
+
+        var (prepared, error) = await PrepareOrderAsync(orderRequest, $"Ordem criada a partir do pedido {serviceRequest.Number}");
+        if (error is not null) return error;
+        var order = prepared!.Order;
+
+        // Move (não copia) as fotos: o arquivo passa a ser da OS, e excluir a foto na OS
+        // não deixa um link quebrado para trás no pedido.
+        foreach (var photo in serviceRequest.Photos)
+        {
+            _context.ServiceOrderPhotos.Add(new ServiceOrderPhoto
+            {
+                Id = Guid.NewGuid(),
+                ServiceOrderId = order.Id,
+                Url = photo.Url,
+                UploadedAt = photo.UploadedAt,
+                UploadedBy = photo.UploadedBy,
+            });
+        }
+        _context.ServiceRequestPhotos.RemoveRange(serviceRequest.Photos);
+
+        serviceRequest.Status = ServiceRequestStatuses.OsCriada;
+        serviceRequest.ServiceOrderId = order.Id;
+        serviceRequest.UpdatedAt = DateTime.UtcNow;
+
+        return await CompleteOrderAsync(prepared);
+    }
+
+    private sealed record PreparedOrder(ServiceOrder Order, Customer Customer, bool CustomerWasCreated);
+
+    // Monta cliente/veículo/OS no contexto sem salvar — quem chama pode juntar mais
+    // alterações na mesma transação antes de CompleteOrderAsync.
+    private async Task<(PreparedOrder? Prepared, IActionResult? Error)> PrepareOrderAsync(CreateServiceOrderWithCustomerVehicleDto request, string historyNote)
+    {
         if (string.IsNullOrWhiteSpace(request.Customer.Name))
-            return BadRequest(new { message = "O nome do cliente é obrigatório." });
+            return (null, BadRequest(new { message = "O nome do cliente é obrigatório." }));
 
         var document = DocumentValidator.Normalize(request.Customer.Document);
         if (!string.IsNullOrWhiteSpace(document) && !DocumentValidator.IsValidCpfOrCnpj(document))
-            return BadRequest(new { message = "CPF ou CNPJ do cliente inválido." });
+            return (null, BadRequest(new { message = "CPF ou CNPJ do cliente inválido." }));
 
         request.Customer.Document = document;
         var isTow = request.ServiceType == ServiceOrderTypes.Guincho;
@@ -350,7 +429,7 @@ public class ServiceOrdersController : ControllerBase
             // associado e ninguém vai parar a remoção para cadastrar cliente). Cria o
             // registro com o documento e gera o mesmo aviso "Cadastrar Cliente" abaixo.
             if (!string.IsNullOrWhiteSpace(document) && !isTow)
-                return NotFound(new { message = "Cliente não cadastrado com este CPF/CNPJ. Cadastre o cliente antes de continuar.", document });
+                return (null, NotFound(new { message = "Cliente não cadastrado com este CPF/CNPJ. Cadastre o cliente antes de continuar.", document }));
 
             // Sem documento (atendimento avulso/urgência, ex.: guincho): cria um registro
             // simples aqui mesmo. Documento vazio nunca é usado em busca (ver acima), então
@@ -375,7 +454,7 @@ public class ServiceOrdersController : ControllerBase
             customer = existingCustomer;
             var incomingName = request.Customer.Name.Trim();
             if (!string.Equals(customer.Name, incomingName, StringComparison.OrdinalIgnoreCase))
-                return Conflict(new { message = $"O CPF/CNPJ informado já está cadastrado para o cliente \"{customer.Name}\". Confirme os dados antes de continuar." });
+                return (null, Conflict(new { message = $"O CPF/CNPJ informado já está cadastrado para o cliente \"{customer.Name}\". Confirme os dados antes de continuar." }));
 
             customer.WhatsApp = request.Customer.WhatsApp;
             customer.Phone = request.Customer.Phone;
@@ -390,13 +469,14 @@ public class ServiceOrdersController : ControllerBase
         // sem placa, cria um veículo "a definir" só desta OS (placa vazia nunca é usada
         // em busca, então não é reaproveitado). Na oficina a placa continua obrigatória.
         if (string.IsNullOrWhiteSpace(normalizedPlate) && !isTow)
-            return BadRequest(new { message = "Informe a placa do veículo." });
+            return (null, BadRequest(new { message = "Informe a placa do veículo." }));
 
         var existingVehicle = string.IsNullOrWhiteSpace(normalizedPlate)
             ? null
             : await _context.Vehicles.FirstOrDefaultAsync(v => v.Plate == normalizedPlate);
 
         Vehicle vehicle;
+        string? previousOwnerName = null;
         if (existingVehicle is null)
         {
             // Create new vehicle
@@ -418,8 +498,18 @@ public class ServiceOrdersController : ControllerBase
         else
         {
             vehicle = existingVehicle;
+            // Carro que já passou pela oficina com outro dono (vendido, ou trazido por
+            // outra pessoa): o veículo passa a ser do cliente desta OS. As OS antigas
+            // não mudam — cada OS guarda o próprio CustomerId, então continuam no nome
+            // de quem as abriu.
             if (vehicle.CustomerId != customer.Id)
-                return Conflict(new { message = "A placa informada já está vinculada a outro cliente. Confirme os dados antes de continuar." });
+            {
+                previousOwnerName = await _context.Customers
+                    .Where(c => c.Id == vehicle.CustomerId)
+                    .Select(c => c.Name)
+                    .FirstOrDefaultAsync();
+                vehicle.CustomerId = customer.Id;
+            }
         }
 
         // Status inicial precisa ser do fluxo do tipo: o DTO tem "Recebido" (oficina)
@@ -456,12 +546,20 @@ public class ServiceOrdersController : ControllerBase
             Status = order.Status,
             ChangedAt = DateTime.UtcNow,
             ChangedBy = request.ResponsibleUser,
-            Notes = "Ordem criada"
+            Notes = previousOwnerName is null
+                ? historyNote
+                : $"{historyNote}. Veículo transferido do cliente \"{previousOwnerName}\" para \"{customer.Name}\"."
         });
 
         if (order.ServiceType == ServiceOrderTypes.Guincho && request.TowDetails is not null)
             await UpsertTowDetailsAsync(order.Id, request.TowDetails);
 
+        return (new PreparedOrder(order, customer, customerWasCreated), null);
+    }
+
+    private async Task<IActionResult> CompleteOrderAsync(PreparedOrder prepared)
+    {
+        var (order, customer, customerWasCreated) = prepared;
         await _context.SaveChangesAsync();
 
         if (customerWasCreated)
@@ -491,6 +589,14 @@ public class ServiceOrdersController : ControllerBase
     [Authorize(Policy = "CanManageOrders")]
     public async Task<IActionResult> UpdateStatus(Guid id, [FromBody] UpdateServiceOrderStatusDto request)
     {
+        var serviceType = await _context.ServiceOrders
+            .Where(o => o.Id == id)
+            .Select(o => o.ServiceType)
+            .FirstOrDefaultAsync();
+        if (serviceType is null) return NotFound();
+        if (!ServiceOrderStatuses.IsValidFor(serviceType, request.Status))
+            return BadRequest(new { message = $"Status \"{request.Status}\" não é válido para OS de {serviceType}." });
+
         var result = await _statusService.ChangeStatusAsync(id, request.Status, request.Notes, request.ChangedBy, HttpContext.RequestAborted);
         if (result.Order is null) return NotFound();
 

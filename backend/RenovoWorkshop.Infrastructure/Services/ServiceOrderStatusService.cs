@@ -18,7 +18,7 @@ public class ServiceOrderStatusService : IServiceOrderStatusService
         _notificationService = notificationService;
     }
 
-    public async Task<ServiceOrderStatusChangeResult> ChangeStatusAsync(Guid orderId, string newStatus, string? notes, string changedBy, CancellationToken cancellationToken = default)
+    public async Task<ServiceOrderStatusChangeResult> ChangeStatusAsync(Guid orderId, string newStatus, string? notes, string changedBy, CancellationToken cancellationToken = default, bool notifyCustomer = true)
     {
         var order = await _context.ServiceOrders
             .Include(o => o.Customer)
@@ -50,14 +50,15 @@ public class ServiceOrderStatusService : IServiceOrderStatusService
         // usadas nesse ponto, então a baixa não bloqueia a conclusão).
         if (newStatus == "Entregue" && !order.StockDeducted && order.Items.Count > 0)
         {
-            var inventoryIds = order.Items.Select(i => i.InventoryItemId).ToList();
+            // Peças avulsas (sem InventoryItemId) não têm saldo a debitar.
+            var inventoryIds = order.Items.Where(i => i.InventoryItemId.HasValue).Select(i => i.InventoryItemId!.Value).ToList();
             var inventoryItems = await _context.InventoryItems
                 .Where(i => inventoryIds.Contains(i.Id))
                 .ToDictionaryAsync(i => i.Id, cancellationToken);
 
             foreach (var orderItem in order.Items)
             {
-                if (inventoryItems.TryGetValue(orderItem.InventoryItemId, out var inventoryItem))
+                if (orderItem.InventoryItemId is Guid inventoryItemId && inventoryItems.TryGetValue(inventoryItemId, out var inventoryItem))
                 {
                     inventoryItem.Quantity = Math.Max(0, inventoryItem.Quantity - orderItem.Quantity);
                 }
@@ -78,18 +79,24 @@ public class ServiceOrderStatusService : IServiceOrderStatusService
         await _context.SaveChangesAsync(cancellationToken);
 
         var customer = await _context.Customers.FindAsync(new object?[] { order.CustomerId }, cancellationToken);
-        if (customer is not null)
+        // notifyCustomer=false: quem chamou já mandou a mensagem (ex.: botão "Enviar
+        // orçamento" da tela Orçamentos, que envia o PDF e só depois move o status).
+        if (customer is not null && notifyCustomer)
         {
             // Fotos só fazem sentido no pedido de aprovação (peças defeituosas que
             // justificam o orçamento) — nas demais transições não buscamos nada.
             IReadOnlyList<string>? photoUrls = null;
             if (newStatus == "Aguardando aprovação")
             {
-                photoUrls = await _context.ServiceOrderPhotos
+                var photos = await _context.ServiceOrderPhotos
                     .Where(p => p.ServiceOrderId == order.Id)
                     .OrderByDescending(p => p.UploadedAt)
-                    .Select(p => p.Url)
                     .ToListAsync(cancellationToken);
+
+                // Se a tela Orçamentos já escolheu as fotos (veículo + peças), manda só
+                // essas; senão mantém o comportamento antigo de mandar todas.
+                var selected = photos.Where(p => p.Id == order.QuoteVehiclePhotoId || p.IncludeInQuote).ToList();
+                photoUrls = (selected.Count > 0 ? selected : photos).Select(p => p.Url).ToList();
             }
 
             await _whatsAppService.SendStatusMessageAsync(order, customer, previousStatus, newStatus, notes, photoUrls, cancellationToken);

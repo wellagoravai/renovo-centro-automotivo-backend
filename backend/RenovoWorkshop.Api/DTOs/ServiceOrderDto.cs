@@ -13,7 +13,9 @@ public class ServiceOrderDto
     public string Filters { get; set; } = string.Empty;
     public decimal EstimatedTime { get; set; }
     public decimal LaborValue { get; set; }
+    public decimal Discount { get; set; }
     public decimal Value { get; set; }
+    public DateTime? QuoteSentAt { get; set; }
     public string Notes { get; set; } = string.Empty;
     public DateTime EntryDate { get; set; }
     public DateTime? EstimatedDate { get; set; }
@@ -133,6 +135,9 @@ public class UpdateServiceOrderDto
     // Customer/Vehicle, entidades compartilhadas por outras OS do mesmo cliente/veículo.
     public string? ResponsibleUser { get; set; }
     public string? ProblemReported { get; set; }
+    public DateTime? EstimatedDate { get; set; }
+    // EstimatedDate null = "não mexe"; para apagar a previsão, envie true aqui.
+    public bool? ClearEstimatedDate { get; set; }
     public Guid? CustomerId { get; set; }
     public string? VehiclePlate { get; set; }
     public string? VehicleBrand { get; set; }
@@ -145,7 +150,7 @@ public class UpdateServiceOrderDto
 public class ServiceOrderItemDto
 {
     public Guid Id { get; set; }
-    public Guid InventoryItemId { get; set; }
+    public Guid? InventoryItemId { get; set; }
     public string ItemCode { get; set; } = string.Empty;
     public string ItemDescription { get; set; } = string.Empty;
     public int Quantity { get; set; }

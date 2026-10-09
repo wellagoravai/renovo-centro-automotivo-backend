@@ -87,4 +87,37 @@ public class QuoteDocumentServiceTests
 
         Assert.NotEmpty(pdfBytes);
     }
+
+    // Tela Orçamentos: desconto, peça avulsa (sem item de estoque) e fotos do veículo
+    // e das peças — inclusive uma foto ilegível, que deve ficar de fora sem derrubar o PDF.
+    [Fact]
+    public void GenerateQuotePdf_ShouldRender_DiscountLoosePartAndPhotos()
+    {
+        var service = new QuoteDocumentService();
+        var order = BuildOrder();
+        order.Items.Add(new ServiceOrderItem { Id = Guid.NewGuid(), ServiceOrderId = order.Id, Description = "Pastilha de freio dianteira", Quantity = 1, UnitValue = 150m });
+        order.Discount = 30m;
+        order.RecalculateValue();
+
+        using var logoStream = typeof(QuoteDocumentService).Assembly
+            .GetManifestResourceStream("RenovoWorkshop.Infrastructure.Resources.renovo-logo.png")!;
+        using var memory = new MemoryStream();
+        logoStream.CopyTo(memory);
+        var photo = memory.ToArray();
+        var images = new RenovoWorkshop.Application.Interfaces.QuotePdfImages(photo, new[] { photo, new byte[] { 1, 2, 3 }, photo });
+
+        var pdfBytes = service.GenerateQuotePdf(order, order.Customer, images);
+
+        Assert.Equal("%PDF-", System.Text.Encoding.ASCII.GetString(pdfBytes, 0, 5));
+        // 80 (mão de obra) + 4 x 64 + 150 (peças) − 30 (desconto)
+        Assert.Equal(456m, order.Value);
+    }
+
+    [Theory]
+    [InlineData("https://res.cloudinary.com/demo/image/upload/v1/renovo/foto.heic", "https://res.cloudinary.com/demo/image/upload/f_jpg,w_1000,c_limit,q_80/v1/renovo/foto.heic")]
+    [InlineData("https://example.com/image/upload/foto.jpg", "https://example.com/image/upload/foto.jpg")]
+    public void ToPdfFriendlyUrl_ConvertsOnlyCloudinaryUrls(string url, string expected)
+    {
+        Assert.Equal(expected, QuoteImageLoader.ToPdfFriendlyUrl(url));
+    }
 }

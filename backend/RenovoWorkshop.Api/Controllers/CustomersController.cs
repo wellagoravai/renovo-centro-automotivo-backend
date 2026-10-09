@@ -122,9 +122,17 @@ public class CustomersController : ControllerBase
         var customer = await _context.Customers.FindAsync(id);
         if (customer is null) return NotFound();
 
+        if (string.IsNullOrWhiteSpace(updateCustomerDto.Name))
+            return BadRequest(new { message = "O nome do cliente é obrigatório." });
+
+        // Documento vazio é aceito: clientes abertos às pressas (guincho/avulso) não têm
+        // CPF e precisam poder ser corrigidos — inclusive pelo app, a partir da OS.
         var document = DocumentValidator.Normalize(updateCustomerDto.Document);
-        if (!DocumentValidator.IsValidCpfOrCnpj(document))
+        if (!string.IsNullOrWhiteSpace(document) && !DocumentValidator.IsValidCpfOrCnpj(document))
             return BadRequest(new { message = "Informe um CPF ou CNPJ válido." });
+
+        if (!string.IsNullOrWhiteSpace(document) && await _context.Customers.AnyAsync(c => c.Id != id && c.Document == document))
+            return Conflict(new { message = "Já existe outro cliente cadastrado com este CPF/CNPJ." });
 
         updateCustomerDto.Document = document;
 

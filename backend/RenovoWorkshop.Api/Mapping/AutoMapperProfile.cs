@@ -54,11 +54,12 @@ public class AutoMapperProfile : Profile
         CreateMap<UpdateServiceOrderDto, ServiceOrder>()
             .ForMember(dest => dest.ResponsibleUser, opt => opt.Ignore())
             .ForMember(dest => dest.ProblemReported, opt => opt.Ignore())
+            .ForMember(dest => dest.EstimatedDate, opt => opt.Ignore())
             .ForMember(dest => dest.CustomerId, opt => opt.Ignore());
 
         CreateMap<ServiceOrderItem, ServiceOrderItemDto>()
-            .ForMember(dest => dest.ItemCode, opt => opt.MapFrom(src => src.InventoryItem.Code))
-            .ForMember(dest => dest.ItemDescription, opt => opt.MapFrom(src => src.InventoryItem.Description))
+            .ForMember(dest => dest.ItemCode, opt => opt.MapFrom(src => src.InventoryItem != null ? src.InventoryItem.Code : string.Empty))
+            .ForMember(dest => dest.ItemDescription, opt => opt.MapFrom(src => src.DisplayDescription))
             .ForMember(dest => dest.TotalValue, opt => opt.MapFrom(src => src.Quantity * src.UnitValue));
 
         // WorkshopSettings mappings

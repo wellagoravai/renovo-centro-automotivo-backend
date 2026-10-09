@@ -28,6 +28,8 @@ public class RenovoWorkshopDbContext : DbContext
     public DbSet<VehicleLookupAuditLog> VehicleLookupAuditLogs => Set<VehicleLookupAuditLog>();
     public DbSet<TripExpense> TripExpenses => Set<TripExpense>();
     public DbSet<TowQuote> TowQuotes => Set<TowQuote>();
+    public DbSet<ServiceRequest> ServiceRequests => Set<ServiceRequest>();
+    public DbSet<ServiceRequestPhoto> ServiceRequestPhotos => Set<ServiceRequestPhoto>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -54,6 +56,7 @@ public class RenovoWorkshopDbContext : DbContext
             entity.Property(s => s.Number).IsRequired().HasMaxLength(50);
             entity.Property(s => s.EstimatedTime).HasPrecision(10, 2);
             entity.Property(s => s.LaborValue).HasPrecision(12, 2);
+            entity.Property(s => s.Discount).HasPrecision(12, 2);
             entity.Property(s => s.Value).HasPrecision(12, 2);
             entity.HasOne(s => s.Customer)
                 .WithMany(c => c.ServiceOrders)
@@ -158,6 +161,43 @@ public class RenovoWorkshopDbContext : DbContext
                 .OnDelete(DeleteBehavior.SetNull);
         });
 
+        modelBuilder.Entity<ServiceRequest>(entity =>
+        {
+            entity.HasKey(r => r.Id);
+            entity.Property(r => r.Number).IsRequired().HasMaxLength(30);
+            entity.HasIndex(r => r.Number);
+            entity.Property(r => r.Status).IsRequired().HasMaxLength(20);
+            entity.HasIndex(r => r.Status);
+            entity.HasIndex(r => r.CreatedAt);
+            entity.Property(r => r.CustomerName).HasMaxLength(200);
+            entity.Property(r => r.CustomerDocument).HasMaxLength(30);
+            entity.Property(r => r.CustomerPhone).HasMaxLength(50);
+            entity.Property(r => r.VehiclePlate).HasMaxLength(20);
+            entity.Property(r => r.VehicleBrand).HasMaxLength(100);
+            entity.Property(r => r.VehicleModel).HasMaxLength(150);
+            entity.Property(r => r.VehicleColor).HasMaxLength(50);
+            entity.Property(r => r.ProblemReported).HasMaxLength(4000);
+            entity.Property(r => r.Notes).HasMaxLength(4000);
+            entity.Property(r => r.CreatedBy).HasMaxLength(200);
+            entity.Property(r => r.DecidedBy).HasMaxLength(200);
+            // Pedido é histórico do atendimento: apagar a OS só solta o vínculo.
+            entity.HasOne(r => r.ServiceOrder)
+                .WithMany()
+                .HasForeignKey(r => r.ServiceOrderId)
+                .OnDelete(DeleteBehavior.SetNull);
+            entity.HasMany(r => r.Photos)
+                .WithOne(p => p.ServiceRequest)
+                .HasForeignKey(p => p.ServiceRequestId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<ServiceRequestPhoto>(entity =>
+        {
+            entity.HasKey(p => p.Id);
+            entity.Property(p => p.Url).IsRequired().HasMaxLength(1000);
+            entity.Property(p => p.UploadedBy).HasMaxLength(200);
+        });
+
         modelBuilder.Entity<InventoryItem>(entity =>
         {
             entity.HasKey(i => i.Id);
@@ -202,9 +242,11 @@ public class RenovoWorkshopDbContext : DbContext
         {
             entity.HasKey(i => i.Id);
             entity.Property(i => i.UnitValue).HasPrecision(12, 2);
+            entity.Property(i => i.Description).HasMaxLength(300);
             entity.HasOne(i => i.InventoryItem)
                 .WithMany()
                 .HasForeignKey(i => i.InventoryItemId)
+                .IsRequired(false)
                 .OnDelete(DeleteBehavior.Restrict);
         });
 

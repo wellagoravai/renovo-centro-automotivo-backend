@@ -1,9 +1,11 @@
 using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 using RenovoWorkshop.Application.Exceptions;
 using RenovoWorkshop.Application.Interfaces;
 using RenovoWorkshop.Domain.Entities;
+using RenovoWorkshop.Domain.Validation;
 using RenovoWorkshop.Infrastructure.Persistence;
 
 namespace RenovoWorkshop.Api.Controllers;
@@ -36,6 +38,7 @@ public class VeiculosController : ControllerBase
         {
             var info = await _veiculoConsultaService.ConsultarPorPlacaAsync(placa, cancellationToken);
             await RegistrarAuditoriaAsync(userId, placa, info.FonteDados, sucesso: true, erro: null, cancellationToken);
+            await PreencherChassiAsync(info, cancellationToken);
             return Ok(info);
         }
         catch (PlacaInvalidaException ex)
@@ -64,6 +67,32 @@ public class VeiculosController : ControllerBase
             _logger.LogWarning(ex, "APIBrasil indisponível ao consultar placa {Placa}", placa);
             await RegistrarAuditoriaAsync(userId, placa, "ApiBrasil", sucesso: false, erro: ex.Message, cancellationToken);
             return StatusCode(StatusCodes.Status503ServiceUnavailable, new { message = ex.Message });
+        }
+    }
+
+    // O chassi que veio da consulta já fica gravado no cadastro do veículo com essa
+    // placa (aba Veículos), sem precisar redigitar. A placa é comparada sem traço:
+    // o check-in do app grava "ABC-1D23", o painel às vezes "ABC1D23".
+    private async Task PreencherChassiAsync(VeiculoInfo info, CancellationToken cancellationToken)
+    {
+        var chassi = info.Chassi?.Trim().ToUpperInvariant();
+        var placa = PlacaValidator.Normalize(info.Placa);
+        if (string.IsNullOrWhiteSpace(chassi) || string.IsNullOrWhiteSpace(placa)) return;
+
+        try
+        {
+            var veiculos = await _context.Vehicles
+                .Where(v => v.Plate.ToUpper().Replace("-", "").Replace(" ", "") == placa && v.Chassis != chassi)
+                .ToListAsync(cancellationToken);
+            if (veiculos.Count == 0) return;
+
+            foreach (var veiculo in veiculos) veiculo.Chassis = chassi;
+            await _context.SaveChangesAsync(cancellationToken);
+        }
+        catch (Exception ex)
+        {
+            // A consulta já foi paga e respondida; falhar ao gravar o chassi não a derruba.
+            _logger.LogError(ex, "Falha ao gravar o chassi consultado para a placa {Placa}", placa);
         }
     }
 

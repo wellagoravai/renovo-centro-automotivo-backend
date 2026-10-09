@@ -28,7 +28,7 @@ public class FakeWhatsAppService : IWhatsAppService
 
     public int QuoteDocumentsSent { get; private set; }
 
-    public Task<WhatsAppSendResult> SendQuoteDocumentAsync(ServiceOrder order, Customer customer, CancellationToken cancellationToken = default)
+    public Task<WhatsAppSendResult> SendQuoteDocumentAsync(ServiceOrder order, Customer customer, CancellationToken cancellationToken = default, string? caption = null)
     {
         QuoteDocumentsSent++;
         return Task.FromResult(new WhatsAppSendResult(true, "ok"));

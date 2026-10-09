@@ -49,8 +49,14 @@ public class QuoteDocumentService : IQuoteDocumentService
         return memoryStream.ToArray();
     }
 
-    public byte[] GenerateQuotePdf(ServiceOrder order, Customer customer)
+    public byte[] GenerateQuotePdf(ServiceOrder order, Customer customer, QuotePdfImages? images = null)
     {
+        var vehiclePhoto = TryLoadImage(images?.VehiclePhoto);
+        var partPhotos = (images?.PartPhotos ?? Array.Empty<byte[]>())
+            .Select(TryLoadImage)
+            .OfType<Image>()
+            .ToList();
+
         var document = Document.Create(container =>
         {
             container.Page(page =>
@@ -60,7 +66,7 @@ public class QuoteDocumentService : IQuoteDocumentService
                 page.DefaultTextStyle(x => x.FontFamily("Roboto").FontSize(10));
 
                 page.Header().Element(c => ComposeHeader(c, order));
-                page.Content().Element(c => ComposeContent(c, order, customer));
+                page.Content().Element(c => ComposeContent(c, order, customer, vehiclePhoto, partPhotos));
                 page.Footer().Element(ComposeFooter);
             });
         });
@@ -95,7 +101,22 @@ public class QuoteDocumentService : IQuoteDocumentService
         });
     }
 
-    private static void ComposeContent(IContainer container, ServiceOrder order, Customer customer)
+    // Foto corrompida ou em formato que o Skia não lê (ex.: HEIC fora do Cloudinary)
+    // fica de fora em vez de derrubar a geração do orçamento inteiro.
+    private static Image? TryLoadImage(byte[]? bytes)
+    {
+        if (bytes is null || bytes.Length == 0) return null;
+        try
+        {
+            return Image.FromBinaryData(bytes);
+        }
+        catch (Exception)
+        {
+            return null;
+        }
+    }
+
+    private static void ComposeContent(IContainer container, ServiceOrder order, Customer customer, Image? vehiclePhoto, IReadOnlyList<Image> partPhotos)
     {
         container.PaddingTop(16).Column(column =>
         {
@@ -123,6 +144,13 @@ public class QuoteDocumentService : IQuoteDocumentService
                     if (order.Vehicle.Mileage > 0)
                         col.Item().Text($"KM: {order.Vehicle.Mileage:0}").FontSize(9);
                 });
+
+                if (vehiclePhoto is not null)
+                {
+                    row.ConstantItem(8);
+                    row.ConstantItem(110).Height(78).Border(1).BorderColor(Colors.Grey.Lighten2)
+                        .AlignCenter().AlignMiddle().Image(vehiclePhoto).FitArea();
+                }
             });
 
             if (order.Items.Count > 0)
@@ -150,7 +178,7 @@ public class QuoteDocumentService : IQuoteDocumentService
 
                         foreach (var item in order.Items)
                         {
-                            var description = item.InventoryItem?.Description ?? "Item";
+                            var description = item.DisplayDescription;
                             var total = item.Quantity * item.UnitValue;
                             table.Cell().Element(BodyCell).Text(description);
                             table.Cell().Element(BodyCell).AlignRight().Text(item.Quantity.ToString());
@@ -183,7 +211,7 @@ public class QuoteDocumentService : IQuoteDocumentService
                 });
             }
 
-            var totalPecas = order.Items.Sum(i => i.Quantity * i.UnitValue);
+            var totalPecas = order.PartsTotal;
             column.Item().AlignRight().Width(220).Column(col =>
             {
                 col.Item().Row(r =>
@@ -196,6 +224,14 @@ public class QuoteDocumentService : IQuoteDocumentService
                     r.RelativeItem().Text("Total de serviços").FontSize(9);
                     r.ConstantItem(90).AlignRight().Text($"R$ {FormatCurrency(order.LaborValue)}").FontSize(9);
                 });
+                if (order.Discount > 0)
+                {
+                    col.Item().Row(r =>
+                    {
+                        r.RelativeItem().Text("Desconto").FontSize(9);
+                        r.ConstantItem(90).AlignRight().Text($"- R$ {FormatCurrency(order.Discount)}").FontSize(9).FontColor(Colors.Green.Darken2);
+                    });
+                }
                 col.Item().PaddingTop(6).BorderTop(1).BorderColor(Colors.Black).PaddingTop(6).Row(r =>
                 {
                     r.RelativeItem().Text("TOTAL").Bold().FontSize(12);
@@ -208,6 +244,26 @@ public class QuoteDocumentService : IQuoteDocumentService
                 text.Span("Aprovação pelo WhatsApp: ").Bold().FontSize(9.5f);
                 text.Span("responda SIM para aprovar este orçamento ou NÃO para recusar. Também é possível assinar e devolver este documento.").FontSize(9.5f);
             });
+
+            if (partPhotos.Count > 0)
+            {
+                column.Item().Column(col =>
+                {
+                    col.Item().Text("FOTOS DAS PEÇAS A SUBSTITUIR").FontSize(9).Bold();
+                    foreach (var pair in partPhotos.Chunk(2))
+                    {
+                        col.Item().PaddingTop(6).Row(row =>
+                        {
+                            row.Spacing(8);
+                            foreach (var photo in pair)
+                                row.RelativeItem().Height(150).Border(1).BorderColor(Colors.Grey.Lighten2)
+                                    .AlignCenter().AlignMiddle().Image(photo).FitArea();
+                            if (pair.Length == 1)
+                                row.RelativeItem();
+                        });
+                    }
+                });
+            }
 
             column.Item().PaddingTop(24).Row(row =>
             {

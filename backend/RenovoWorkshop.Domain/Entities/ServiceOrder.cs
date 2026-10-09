@@ -17,7 +17,9 @@ public class ServiceOrder
     public string Filters { get; set; } = string.Empty;
     public decimal EstimatedTime { get; set; }
     public decimal LaborValue { get; set; }
-    // Recalculado sempre que LaborValue ou Items mudam (ver ServiceOrdersController.RecalculateValue) —
+    // Desconto em R$ concedido no orçamento (tela Orçamentos). Abatido de Value.
+    public decimal Discount { get; set; }
+    // Recalculado sempre que LaborValue, Discount ou Items mudam (ver RecalculateValue) —
     // mantido como coluna persistida para não quebrar relatórios/dashboard que leem Value diretamente.
     public decimal Value { get; set; }
     public string Notes { get; set; } = string.Empty;
@@ -33,6 +35,10 @@ public class ServiceOrder
     public string? ApprovalLink { get; set; }
     public string Photos { get; set; } = string.Empty;
     public bool StockDeducted { get; set; }
+    // Foto que identifica o veículo no PDF do orçamento (de preferência a da placa).
+    // As fotos das peças a trocar ficam marcadas em ServiceOrderPhoto.IncludeInQuote.
+    public Guid? QuoteVehiclePhotoId { get; set; }
+    public DateTime? QuoteSentAt { get; set; }
 
     public ICollection<ServiceOrderItem> Items { get; set; } = new List<ServiceOrderItem>();
 
@@ -43,4 +49,14 @@ public class ServiceOrder
     public Vehicle Vehicle { get; set; } = null!;
 
     public ICollection<ServiceOrderHistory> History { get; set; } = new List<ServiceOrderHistory>();
+
+    public decimal PartsTotal => Items.Sum(i => i.Quantity * i.UnitValue);
+
+    // Value nunca é digitado diretamente — é sempre mão de obra + peças lançadas − desconto,
+    // para o orçamento mandado ao cliente (e os relatórios que leem Value) nunca ficarem
+    // incoerentes com os itens reais da OS.
+    public void RecalculateValue()
+    {
+        Value = Math.Max(0, LaborValue + PartsTotal - Discount);
+    }
 }

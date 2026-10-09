@@ -12,13 +12,15 @@ public class WhatsAppService : IWhatsAppService
     private readonly IConfiguration? _configuration;
     private readonly EvolutionApiClient? _evolutionClient;
     private readonly IQuoteDocumentService? _quoteDocumentService;
+    private readonly IQuoteImageLoader? _quoteImageLoader;
 
-    public WhatsAppService(RenovoWorkshopDbContext? context, IConfiguration? configuration, EvolutionApiClient? evolutionClient = null, IQuoteDocumentService? quoteDocumentService = null)
+    public WhatsAppService(RenovoWorkshopDbContext? context, IConfiguration? configuration, EvolutionApiClient? evolutionClient = null, IQuoteDocumentService? quoteDocumentService = null, IQuoteImageLoader? quoteImageLoader = null)
     {
         _context = context;
         _configuration = configuration;
         _evolutionClient = evolutionClient;
         _quoteDocumentService = quoteDocumentService;
+        _quoteImageLoader = quoteImageLoader;
     }
 
     public string BuildStatusMessage(ServiceOrder order, Customer customer, string previousStatus, string newStatus, string? notes = null)
@@ -96,13 +98,16 @@ public class WhatsAppService : IWhatsAppService
             lines.Add("Peças:");
             foreach (var item in order.Items)
             {
-                var description = item.InventoryItem?.Description ?? "Item";
+                var description = item.DisplayDescription;
                 lines.Add($"- {description} (x{item.Quantity}): R$ {FormatCurrency(item.Quantity * item.UnitValue)}");
             }
         }
 
         if (order.LaborValue > 0)
             lines.Add($"Mão de obra: R$ {FormatCurrency(order.LaborValue)}");
+
+        if (order.Discount > 0)
+            lines.Add($"Desconto: - R$ {FormatCurrency(order.Discount)}");
 
         lines.Add($"Total: R$ {FormatCurrency(order.Value)}");
 
@@ -173,7 +178,7 @@ public class WhatsAppService : IWhatsAppService
     // Anexa o PDF do orçamento (mesmo layout do botão "Gerar Orçamento em PDF" no
     // painel) como documento na conversa — complementa o texto de aprovação já
     // enviado por SendStatusMessageAsync, não o substitui.
-    public async Task<WhatsAppSendResult> SendQuoteDocumentAsync(ServiceOrder order, Customer customer, CancellationToken cancellationToken = default)
+    public async Task<WhatsAppSendResult> SendQuoteDocumentAsync(ServiceOrder order, Customer customer, CancellationToken cancellationToken = default, string? caption = null)
     {
         var recipient = !string.IsNullOrWhiteSpace(customer.WhatsApp)
             ? customer.WhatsApp
@@ -206,10 +211,11 @@ public class WhatsAppService : IWhatsAppService
 
         try
         {
-            var pdfBytes = _quoteDocumentService.GenerateQuotePdf(order, customer);
+            var images = _quoteImageLoader is null ? null : await _quoteImageLoader.LoadAsync(order, cancellationToken);
+            var pdfBytes = _quoteDocumentService.GenerateQuotePdf(order, customer, images);
             var base64Content = Convert.ToBase64String(pdfBytes);
 
-            var result = await _evolutionClient.SendDocumentAsync(baseUrl, apiKey ?? string.Empty, instance, NormalizePhone(recipient), base64Content, fileName, "application/pdf", caption: null, cancellationToken);
+            var result = await _evolutionClient.SendDocumentAsync(baseUrl, apiKey ?? string.Empty, instance, NormalizePhone(recipient), base64Content, fileName, "application/pdf", caption, cancellationToken);
             await LogMessageAsync(order.Id, customer.Id, recipient, order.Status, result.Success ? "Sent" : "Failed", result.Error, $"[PDF] {fileName}", "Outbound", cancellationToken, result.MessageId);
 
             return result.Success

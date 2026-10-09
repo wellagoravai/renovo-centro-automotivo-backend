@@ -424,7 +424,13 @@ public class ReportsController : ControllerBase
                 .ToListAsync();
 
             var consumption = items
-                .GroupBy(i => new { i.InventoryItemId, i.InventoryItem.Code, i.InventoryItem.Description, i.InventoryItem.Category })
+                .GroupBy(i => new
+                {
+                    i.InventoryItemId,
+                    Code = i.InventoryItem?.Code ?? string.Empty,
+                    Description = i.DisplayDescription,
+                    Category = i.InventoryItem?.Category ?? "Peça avulsa"
+                })
                 .Select(g => new
                 {
                     g.Key.Code,
