@@ -201,6 +201,13 @@ builder.Services.AddHttpClient<IGoogleRoutesTollClient, GoogleRoutesTollClient>(
     client.Timeout = TimeSpan.FromSeconds(googleRoutesOptions.TimeoutSeconds);
     client.DefaultRequestHeaders.TryAddWithoutValidation("X-Goog-Api-Key", googleRoutesOptions.ApiKey);
 });
+builder.Services.AddHttpClient<IGooglePlacesClient, GooglePlacesClient>("GooglePlaces", (sp, client) =>
+{
+    var googleRoutesOptions = sp.GetRequiredService<IOptions<GoogleRoutesOptions>>().Value;
+    client.BaseAddress = new Uri(googleRoutesOptions.PlacesBaseUrl.TrimEnd('/') + "/");
+    client.Timeout = TimeSpan.FromSeconds(googleRoutesOptions.TimeoutSeconds);
+    client.DefaultRequestHeaders.TryAddWithoutValidation("X-Goog-Api-Key", googleRoutesOptions.ApiKey);
+});
 builder.Services.AddScoped<IFreightQuoteService, FreightQuoteService>();
 
 if (string.IsNullOrWhiteSpace(builder.Configuration["Jwt:Key"]))

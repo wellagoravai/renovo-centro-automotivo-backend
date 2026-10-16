@@ -11,13 +11,41 @@ namespace RenovoWorkshop.Api.Controllers;
 [Authorize(Policy = "CanManageOrders")]
 public class FretesController : ControllerBase
 {
+    private const int MinimoCaracteresBusca = 3;
+
     private readonly IFreightQuoteService _freightQuoteService;
+    private readonly IGooglePlacesClient _placesClient;
     private readonly ILogger<FretesController> _logger;
 
-    public FretesController(IFreightQuoteService freightQuoteService, ILogger<FretesController> logger)
+    public FretesController(IFreightQuoteService freightQuoteService, IGooglePlacesClient placesClient, ILogger<FretesController> logger)
     {
         _freightQuoteService = freightQuoteService;
+        _placesClient = placesClient;
         _logger = logger;
+    }
+
+    // Sugestões de endereço/estabelecimento enquanto o operador digita o local
+    // de uma parada da rota (rua e número, ou nome do lugar).
+    [HttpGet("lugares")]
+    public async Task<IActionResult> BuscarLugares([FromQuery] string? q, CancellationToken cancellationToken)
+    {
+        var texto = q?.Trim() ?? string.Empty;
+        if (texto.Length < MinimoCaracteresBusca)
+            return Ok(Array.Empty<LugarEncontrado>());
+
+        try
+        {
+            return Ok(await _placesClient.BuscarAsync(texto, cancellationToken));
+        }
+        catch (GoogleRoutesCredenciaisInvalidasException ex)
+        {
+            _logger.LogError(ex, "Places API não habilitada para a API key da Google");
+            return StatusCode(StatusCodes.Status503ServiceUnavailable, new { message = "Busca de endereços indisponível (Places API não habilitada)." });
+        }
+        catch (GoogleRoutesIndisponivelException ex)
+        {
+            return StatusCode(StatusCodes.Status503ServiceUnavailable, new { message = ex.Message });
+        }
     }
 
     // Cotação sob demanda (não persiste nada) — o operador confirma os valores
