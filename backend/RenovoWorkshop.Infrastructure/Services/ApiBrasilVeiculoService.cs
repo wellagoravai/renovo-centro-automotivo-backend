@@ -16,8 +16,8 @@ namespace RenovoWorkshop.Infrastructure.Services;
 // Client tipado (registrado via AddHttpClient<IVeiculoConsultaService, ApiBrasilVeiculoService>,
 // nomeado "ApiBrasil") para a consulta de dados veiculares por placa na APIBrasil.
 // BaseAddress, DeviceToken e Bearer Token são configurados uma única vez no delegate
-// de AddHttpClient (Program.cs) a partir de ApiBrasilOptions; retry, circuit breaker
-// e timeout por tentativa são aplicados pela pipeline de Polly anexada ao HttpClient.
+// de AddHttpClient (Program.cs) a partir de ApiBrasilOptions; circuit breaker
+// e timeout são aplicados pela pipeline de Polly (sem retry: cada consulta é cobrada).
 public class ApiBrasilVeiculoService : IVeiculoConsultaService
 {
     private const string CachePrefix = "veiculo-consulta:";
@@ -64,7 +64,13 @@ public class ApiBrasilVeiculoService : IVeiculoConsultaService
         HttpResponseMessage response;
         try
         {
-            response = await _httpClient.PostAsJsonAsync("api/v2/vehicles/dados", new { placa = normalizedPlaca }, cancellationToken);
+            // Consulta por crédito (desconta do saldo, sem plano/DeviceToken). O antigo
+            // api/v2/vehicles/dados é da modalidade por plano e responde "Plano ativo
+            // não encontrado" para contas sem plano.
+            response = await _httpClient.PostAsJsonAsync(
+                "api/v2/consulta/veiculos/credits",
+                new { tipo = _options.ConsultaTipo, placa = normalizedPlaca },
+                cancellationToken);
         }
         catch (BrokenCircuitException ex)
         {
@@ -90,7 +96,22 @@ public class ApiBrasilVeiculoService : IVeiculoConsultaService
             if ((int)response.StatusCode == 429)
                 throw new ApiBrasilLimiteExcedidoException("Cota diária de requisições gratuitas da APIBrasil foi excedida. Tente novamente mais tarde.");
 
+            if ((int)response.StatusCode == 402)
+                throw new ApiBrasilIndisponivelException("Saldo insuficiente na APIBrasil. Recarregue o saldo para continuar consultando.");
+
             var body = await response.Content.ReadAsStringAsync(cancellationToken);
+
+            // A APIBrasil devolve erros de negócio no corpo ({"error": true, "message": ...}),
+            // às vezes com HTTP 200: a mensagem dela vai para a tela em vez de um genérico.
+            var apiError = TryGetApiErrorMessage(body);
+            if (apiError is not null)
+            {
+                _logger.LogWarning("APIBrasil recusou a consulta da placa {Placa} ({Status}): {Message}", normalizedPlaca, (int)response.StatusCode, apiError);
+                if (apiError.Contains("veículo", StringComparison.OrdinalIgnoreCase) || apiError.Contains("veiculo", StringComparison.OrdinalIgnoreCase)
+                    || apiError.Contains("placa", StringComparison.OrdinalIgnoreCase))
+                    throw new VeiculoNaoEncontradoException(normalizedPlaca);
+                throw new ApiBrasilIndisponivelException($"APIBrasil: {apiError}");
+            }
 
             if (response.StatusCode == HttpStatusCode.NotFound || string.IsNullOrWhiteSpace(body))
                 throw new VeiculoNaoEncontradoException(normalizedPlaca);
@@ -124,25 +145,74 @@ public class ApiBrasilVeiculoService : IVeiculoConsultaService
         if (data.ValueKind != JsonValueKind.Object)
             throw new VeiculoNaoEncontradoException(placa);
 
+        // "fipe-chassi" devolve uma lista de candidatos em data.resultados; o veículo
+        // da placa é o marcado "principal" (ou o primeiro, se nenhum vier marcado).
+        var resultados = TryGetElement(data, "resultados");
+        if (resultados is { ValueKind: JsonValueKind.Array })
+        {
+            var itens = resultados.Value.EnumerateArray().Where(i => i.ValueKind == JsonValueKind.Object).ToList();
+            if (itens.Count == 0)
+                throw new VeiculoNaoEncontradoException(placa);
+            data = itens.FirstOrDefault(i => TryGetElement(i, "principal") is { ValueKind: JsonValueKind.True }, itens[0]);
+        }
+
+        // "veiculos-dados-v1" traz marca e modelo juntos ("vw/gol 1.0").
+        var (marcaJunta, modeloJunto) = SplitModeloMarca(GetString(data, "modelo_marca", "marca_modelo"));
+
+        // Ela também vem toda em minúsculas: padroniza em maiúsculas como o resto do cadastro.
         return new VeiculoInfo
         {
             Placa = placa,
-            Chassi = GetString(data, "chassi", "chassis"),
-            Marca = GetString(data, "marca", "fabricante", "MARCA"),
-            Modelo = GetString(data, "modelo", "submodelo", "MODELO"),
+            Chassi = Upper(GetString(data, "chassi", "chassis")),
+            Marca = Upper(GetString(data, "marca", "fabricante", "MARCA") ?? marcaJunta),
+            Modelo = Upper(GetString(data, "modelo", "submodelo", "MODELO") ?? modeloJunto),
             AnoFabricacao = GetInt(data, "ano_fabricacao", "anoFabricacao", "ano_fab", "ano"),
             AnoModelo = GetInt(data, "ano_modelo", "anoModelo", "ano_modelo_ano"),
-            Cor = GetString(data, "cor", "COR"),
-            MunicipioUf = BuildMunicipioUf(data),
+            Cor = Upper(GetString(data, "cor", "COR")),
+            MunicipioUf = Upper(BuildMunicipioUf(data)),
             DataConsulta = DateTime.UtcNow,
             FonteDados = "ApiBrasil"
         };
     }
 
+    private static string? Upper(string? value) => value?.Trim().ToUpperInvariant();
+
+    // "vw/gol 1.0" -> ("vw", "gol 1.0"); sem barra, o texto todo fica como modelo.
+    private static (string? Marca, string? Modelo) SplitModeloMarca(string? modeloMarca)
+    {
+        if (string.IsNullOrWhiteSpace(modeloMarca)) return (null, null);
+
+        var slash = modeloMarca.IndexOf('/');
+        if (slash <= 0) return (null, modeloMarca.Trim());
+
+        var modelo = modeloMarca[(slash + 1)..].Trim();
+        return (modeloMarca[..slash].Trim(), modelo.Length > 0 ? modelo : null);
+    }
+
+    // Mensagem de erro do envelope da APIBrasil ({"error": true, "message": "..."}),
+    // ou null quando a resposta não é um erro (ou não é JSON).
+    private static string? TryGetApiErrorMessage(string body)
+    {
+        if (string.IsNullOrWhiteSpace(body)) return null;
+        try
+        {
+            using var document = JsonDocument.Parse(body);
+            var root = document.RootElement;
+            if (root.ValueKind != JsonValueKind.Object) return null;
+            var error = TryGetElement(root, "error");
+            if (error is null || error.Value.ValueKind != JsonValueKind.True) return null;
+            return GetString(root, "message", "mensagem") ?? "consulta recusada.";
+        }
+        catch (JsonException)
+        {
+            return null;
+        }
+    }
+
     private static string? BuildMunicipioUf(JsonElement data)
     {
-        var municipio = GetString(data, "municipio", "cidade");
-        var uf = GetString(data, "uf", "estado");
+        var municipio = GetString(data, "municipio", "cidade", "cidade_placa");
+        var uf = GetString(data, "uf", "estado", "estado_placa");
 
         if (string.IsNullOrWhiteSpace(municipio) && string.IsNullOrWhiteSpace(uf)) return null;
         if (string.IsNullOrWhiteSpace(uf)) return municipio;

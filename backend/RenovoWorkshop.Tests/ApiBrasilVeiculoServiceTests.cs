@@ -72,6 +72,126 @@ public class ApiBrasilVeiculoServiceTests
         Assert.Equal(1, handler.CallCount);
     }
 
+    // Formato da consulta por crédito (POST api/v2/consulta/veiculos/credits), como veio
+    // da APIBrasil em homologação: tudo em minúsculas e marca/modelo juntos.
+    private const string CreditsBody = """
+        {
+            "balance": "46,110",
+            "error": false,
+            "message": "Dados validos!",
+            "data": {
+                "ano_fabricacao": "2020",
+                "ano_modelo": "2021",
+                "chassi": "9bwzzz377vt004251",
+                "cidade_placa": "são paulo",
+                "estado_placa": "sp",
+                "cor": "prata",
+                "modelo_marca": "vw/gol 1.0",
+                "placa": "DRE4D40"
+            }
+        }
+        """;
+
+    [Fact]
+    public async Task ConsultarPorPlacaAsync_ShouldCallCreditsEndpointWithTipoAndPlaca()
+    {
+        var handler = new FakeHttpMessageHandler(_ => JsonResponse(HttpStatusCode.OK, CreditsBody));
+        var service = CreateService(handler);
+
+        await service.ConsultarPorPlacaAsync("DRE-4D40");
+
+        Assert.Equal(HttpMethod.Post, handler.LastRequest!.Method);
+        Assert.Equal("/api/v2/consulta/veiculos/credits", handler.LastRequest.RequestUri!.AbsolutePath);
+        var sent = await handler.LastRequest.Content!.ReadAsStringAsync();
+        Assert.Contains("\"tipo\":\"fipe-chassi\"", sent);
+        Assert.Contains("\"placa\":\"DRE4D40\"", sent);
+    }
+
+    [Fact]
+    public async Task ConsultarPorPlacaAsync_ShouldParseCreditsResponse()
+    {
+        var handler = new FakeHttpMessageHandler(_ => JsonResponse(HttpStatusCode.OK, CreditsBody));
+        var service = CreateService(handler);
+
+        var result = await service.ConsultarPorPlacaAsync("DRE4D40");
+
+        Assert.Equal("9BWZZZ377VT004251", result.Chassi);
+        Assert.Equal("VW", result.Marca);
+        Assert.Equal("GOL 1.0", result.Modelo);
+        Assert.Equal(2020, result.AnoFabricacao);
+        Assert.Equal(2021, result.AnoModelo);
+        Assert.Equal("PRATA", result.Cor);
+        Assert.Equal("SÃO PAULO/SP", result.MunicipioUf);
+    }
+
+    [Fact]
+    public async Task ConsultarPorPlacaAsync_ShouldPickPrincipalResult_FromFipeChassiResponse()
+    {
+        // Formato do "fipe-chassi": lista de candidatos, o da placa vem com "principal": true.
+        var body = """
+            {
+                "error": false,
+                "data": {
+                    "resultados": [
+                        { "chassi": "OUTRO0000000001", "marca": "Fiat", "modelo": "Uno", "principal": false },
+                        { "chassi": "9bgxh75g0dc123456", "marca": "GM - Chevrolet", "modelo": "Corsa 1.8",
+                          "anoFabricacao": 2004, "anoModelo": "2005", "cor": "PRETA", "principal": true }
+                    ]
+                }
+            }
+            """;
+        var handler = new FakeHttpMessageHandler(_ => JsonResponse(HttpStatusCode.OK, body));
+        var service = CreateService(handler);
+
+        var result = await service.ConsultarPorPlacaAsync("DRE4D40");
+
+        Assert.Equal("9BGXH75G0DC123456", result.Chassi);
+        Assert.Equal("GM - CHEVROLET", result.Marca);
+        Assert.Equal("CORSA 1.8", result.Modelo);
+        Assert.Equal(2004, result.AnoFabricacao);
+        Assert.Equal(2005, result.AnoModelo);
+        Assert.Null(result.MunicipioUf);
+    }
+
+    [Fact]
+    public async Task ConsultarPorPlacaAsync_ShouldThrowNaoEncontrado_WhenFipeChassiHasNoResults()
+    {
+        var handler = new FakeHttpMessageHandler(_ => JsonResponse(HttpStatusCode.OK, """{"error":false,"data":{"resultados":[]}}"""));
+        var service = CreateService(handler);
+
+        await Assert.ThrowsAsync<VeiculoNaoEncontradoException>(() => service.ConsultarPorPlacaAsync("ABC1234"));
+    }
+
+    [Fact]
+    public async Task ConsultarPorPlacaAsync_ShouldSurfaceApiBrasilMessage_WhenErrorInBody()
+    {
+        var handler = new FakeHttpMessageHandler(_ => JsonResponse(HttpStatusCode.NotFound, """{"error":true,"message":"Plano ativo não encontrado."}"""));
+        var service = CreateService(handler);
+
+        var ex = await Assert.ThrowsAsync<ApiBrasilIndisponivelException>(() => service.ConsultarPorPlacaAsync("ABC1234"));
+        Assert.Contains("Plano ativo não encontrado", ex.Message);
+    }
+
+    [Fact]
+    public async Task ConsultarPorPlacaAsync_ShouldThrowNaoEncontrado_WhenBodySaysVehicleNotFound()
+    {
+        var handler = new FakeHttpMessageHandler(_ => JsonResponse(HttpStatusCode.OK, """{"error":true,"message":"Veículo não encontrado na base."}"""));
+        var service = CreateService(handler);
+
+        await Assert.ThrowsAsync<VeiculoNaoEncontradoException>(() => service.ConsultarPorPlacaAsync("ABC1234"));
+    }
+
+    [Fact]
+    public async Task ConsultarPorPlacaAsync_ShouldThrowIndisponivel_On402SaldoInsuficiente()
+    {
+        var handler = new FakeHttpMessageHandler(_ => JsonResponse(HttpStatusCode.PaymentRequired, """{"error":true,"message":"Saldo insuficiente"}"""));
+        var service = CreateService(handler);
+
+        var ex = await Assert.ThrowsAsync<ApiBrasilIndisponivelException>(() => service.ConsultarPorPlacaAsync("ABC1234"));
+        Assert.Contains("Saldo insuficiente", ex.Message);
+        Assert.Equal(1, handler.CallCount);
+    }
+
     [Fact]
     public async Task ConsultarPorPlacaAsync_ShouldTolerateMissingFields()
     {

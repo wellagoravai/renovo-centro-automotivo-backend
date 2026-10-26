@@ -176,22 +176,21 @@ builder.Services.AddHttpClient<IVeiculoConsultaService, ApiBrasilVeiculoService>
     // O timeout por tentativa é imposto pela policy de Timeout do Polly (abaixo);
     // o HttpClient em si fica sem timeout próprio para não competir com ela.
     client.Timeout = Timeout.InfiniteTimeSpan;
-    client.DefaultRequestHeaders.TryAddWithoutValidation("DeviceToken", apiBrasilOptions.DeviceToken);
+    // DeviceToken só existe na modalidade por plano; a consulta por crédito usa só o Bearer.
+    if (!string.IsNullOrWhiteSpace(apiBrasilOptions.DeviceToken))
+        client.DefaultRequestHeaders.TryAddWithoutValidation("DeviceToken", apiBrasilOptions.DeviceToken);
     client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", apiBrasilOptions.BearerToken);
 })
-    // Ordem importa: Retry (mais externo) -> CircuitBreaker -> Timeout (mais interno,
-    // aplicado a cada tentativa individual). 429 nunca é retentado: HandleTransientHttpError
-    // só cobre HttpRequestException, 5xx e 408, e 429 é tratado como erro de negócio
-    // dentro do ApiBrasilVeiculoService, sem nunca chegar a essas policies.
-    .AddPolicyHandler(HttpPolicyExtensions
-        .HandleTransientHttpError()
-        .Or<TimeoutRejectedException>()
-        .WaitAndRetryAsync(3, attempt => TimeSpan.FromSeconds(Math.Pow(2, attempt))))
+    // Sem retry: cada chamada à consulta por crédito é cobrada do saldo, então repetir
+    // após um 5xx/timeout poderia cobrar a mesma placa mais de uma vez. Ordem:
+    // CircuitBreaker (externo) -> Timeout (interno). 429/402 são tratados como erro de
+    // negócio dentro do ApiBrasilVeiculoService.
     .AddPolicyHandler(HttpPolicyExtensions
         .HandleTransientHttpError()
         .Or<TimeoutRejectedException>()
         .CircuitBreakerAsync(handledEventsAllowedBeforeBreaking: 5, durationOfBreak: TimeSpan.FromSeconds(30)))
-    .AddPolicyHandler(Policy.TimeoutAsync<HttpResponseMessage>(TimeSpan.FromSeconds(10)));
+    // Generoso: uma consulta cancelada por timeout pode já ter sido cobrada.
+    .AddPolicyHandler(Policy.TimeoutAsync<HttpResponseMessage>(TimeSpan.FromSeconds(30)));
 
 builder.Services.Configure<GoogleRoutesOptions>(builder.Configuration.GetSection(GoogleRoutesOptions.SectionName));
 builder.Services.AddHttpClient<IGoogleRoutesTollClient, GoogleRoutesTollClient>("GoogleRoutes", (sp, client) =>
